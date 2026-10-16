@@ -239,6 +239,13 @@ This `β(r)` is **explicitly a phenomenological model**, not a claim about the a
 
 ```text
 QUANTUMGRAVITYLAB/
+├── qgl_precession.py       # Event-based precession measurement + exact complexity_power solve
+├── qgl_tokamak.py          # Tokamak mode: ion packet in a toroidal field, trapped/passing orbits, JC sensor
+├── qgl_jc_lindblad.py      # Positivity-preserving decay for the JC sensor (core engine's is not)
+├── figures/qgl_tokamak.png
+├── qgl_ensemble.py         # Batch/ensemble orbit runner (CSV, parallel, seeded)
+├── tests/test_qgl.py       # pytest physics + regression suite
+├── requirements.txt
 ├── calibrate.py            # Precession-based calibration of complexity_power p, k_rq, etc.
 ├── documentation.pdf       # Theory & implementation notes (LaTeX/PDF spec)
 ├── unified_sandbox_core.py # QGL core: config, EOM, complexity field, JC engine
@@ -350,6 +357,71 @@ This script:
 
 ---
 
+### 4.4 Ensembles and exact precession (new)
+
+`calibrate.py` locates periapsis as local minima of `r(t)` on the output grid, so its
+angular resolution is set by `n_output`.  At the default settings that resolution is about
+the size of the precession itself (~1e-3 rad/orbit) and the measured shift can come out with
+the wrong sign.  `qgl_precession.py` instead locates every periapsis with an ODE event
+(`r . v = 0`), so the orbit-to-orbit scatter drops to ~1e-11 rad and is reported with every
+measurement.
+
+```bash
+# a grid of orbits: measured / 1PN precession for each (p, e)
+python qgl_ensemble.py --p 60 100 200 --e 0.1 0.3 0.6 --out grid.csv
+
+# 40 seeded random orbits, solving complexity_power per orbit so the ratio is 1, with a plot
+python qgl_ensemble.py --random 40 --seed 1 --solve --plot ensemble.png
+
+# tests
+pip install -r requirements.txt
+python -m pytest -q
+```
+
+Without a calibration table the shipped defaults (`complexity_power = 0.7`,
+`k_rq = 1.77771`) give 0.70--0.81 of the 1PN advance for the 9 orbits of the grid above;
+`--solve` finds the `complexity_power` (about 2.1--2.4 there) that gives exactly 1.
+Treat that as a statement about this one-parameter family, not as evidence for the model.
+
+### 4.5 Tokamak mode (new, stylised)
+
+`qgl_tokamak.py` is roadmap item 1: the test particle becomes a charged ion in an
+axisymmetric tokamak field, and the JC sensor and a complexity profile are carried across.
+
+![tokamak](figures/qgl_tokamak.png)
+
+*Physics (each point is tested in `tests/test_tokamak.py`).*  Large-aspect-ratio field
+`B_phi = B0 R0/R` plus a poloidal field derived from a flux function
+`psi = B0 rho^2 / (2 q0)`, so `div B = 0` exactly and `P_phi = m R v_phi + q psi` is an exact
+invariant.  Full Lorentz-force orbits (units `B0 = 1`, `q/m = 1`).  For the unperturbed field:
+energy is conserved to ~1e-6 (secular, integrator-limited) and `P_phi` to ~1e-9; the magnetic
+moment only adiabatically.  Launched at the outer midplane, an ion is trapped when
+`(v_par/v)^2 < 2 rho0/(R0 + rho0)`; orbits at 0.8x and 1.25x of that threshold behave
+accordingly, passing ions advance poloidally at `v_par t / (2 pi q R0)` to within 15%, and a
+deeply trapped ion's bounce period is within 20% of the small-epsilon formula (about 13% above
+it in the test, as expected at `epsilon = 0.2`).
+
+*Stylised (no claim of fusion relevance).*  The "complexity" profile
+`C_T(rho) = 1/(1 + (rho/rho_t)^p)` has the same form as `C_Q(r)` and multiplies the amplitude of
+an electrostatic wave `dphi = A C_T cos(m theta - n phi - w t)`.  With `A > 0`, `P_phi` is no
+longer conserved and its spread grows with `A` (panel c); `confinement_scan` tabulates that and
+the fraction of ions lost to the wall.  In the runs here no ion reached the wall within the
+integration time, so the spread of `P_phi` is the usable measure, and no control claim is made.
+The sensor's atomic frequency follows `|B|`, so its energy carries the bounce motion on top of its
+own relaxation (panel d); that is by construction, not an independent measurement.
+
+```bash
+python qgl_tokamak.py             # short demonstration
+python qgl_tokamak.py --figure    # regenerate figures/qgl_tokamak.png (about 45 s)
+```
+
+**Found while building this:** the core `JCQuantumEngine._apply_decays` damps populations but not
+coherences, so the density matrix becomes non-positive (smallest eigenvalue about -0.012 after a
+few time units) and `<sigma_z>` can fall below -1.  `qgl_jc_lindblad.LindbladJCEngine` replaces just
+that step with the Kraus form of the same two decay channels; the tokamak sensor uses it.  The core
+is unchanged, and `test_core_decay_breaks_positivity` documents the problem.  Swapping the engine
+into the main pipeline would change its outputs slightly, so that is your call.
+
 ## 5. Scientific status and roadmap
 
 **What QGL *is***:
@@ -372,7 +444,7 @@ This script:
 
 ### Near-term directions
 
-1. **Fusion-oriented extensions**
+1. **Fusion-oriented extensions** (first step done: `qgl_tokamak.py`)
 
    * Replace Keplerian orbits with a simple tokamak-style geometry (closed magnetic field lines).
    * Interpret the “test particle” as a representative ion packet.
@@ -385,6 +457,7 @@ This script:
 
 3. **GPU and ensemble runs**
 
+   * CPU ensembles of orbits now exist (`qgl_ensemble.py`).
    * Batch many orbits and JC sensors in parallel on GPU.
    * Turn QGL into a Monte-Carlo-style “quantum gravity lab” for exploring parameter spaces.
 
