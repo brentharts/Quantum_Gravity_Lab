@@ -249,6 +249,8 @@ QUANTUMGRAVITYLAB/
 ├── qgl_curvature.py        # Complexity scalar + JC sensor driven by the Kretschmann scalar K
 ├── qgl_pancake.py          # Non-singular pancake Big Bang (biaxial Bianchi IX + scalar field), curvature and sensor through it
 ├── qgl_tidal.py            # Comoving tidal tensors (Kasner, Schwarzschild, Mixmaster, pancake); tidal-driven complexity scalar
+├── qgl_flrw.py             # TOY flat-FLRW history with a sigmoid 'entropy' dark term vs LCDM, Tsallis and Pade models; sensor along it
+├── qgl_ccbh.py             # TOY cosmologically-coupled black hole conversion (matter -> dark-energy-like), single-BH growth/spin laws
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
 ├── requirements.txt
@@ -443,12 +445,20 @@ The core (`unified_sandbox_core.py`) is not modified.
   The field equations are re-derived and checked against the paper's equations; the sensor is driven by K(t) through the pancake.
 * **`qgl_tidal.py`**: tidal eigenvalues `a_i''/a_i` for comoving observers, and a complexity scalar driven by the tidal strength.
   Vacuum Kasner tides diverge like 1/t^2; at the pancake they stay finite.
+* **`qgl_flrw.py`**: a flat-FLRW *toy* with a sigmoid-switched dark term, compared with LCDM, a Tsallis-horizon model and a Padé deceleration model, with a horizon-entropy second-law check (dS/dt >= 0 is q >= -1) and the sensor riding the expansion history.
+  It is our own toy, inspired by the sigmoid-blend idea of the Fairfolio "LCDM+S" project, whose equations are unpublished; it does not reproduce that work and has not been fitted to data.
+* **`qgl_ccbh.py`** (toy): black holes whose mass grows as `a^k` and are fed from the star formation history; `k = 3` gives a constant density (w = -1).
+  Written from the stated physics, not from the DESI / Croker et al. equations, so it does not test those papers.
+  In this bookkeeping `k = 3` needs a conversion efficiency of about 3.7 times all stellar mass formed to supply Omega_DE = 0.7.
+* `qgl_flrw.py` also holds an exact **bounce** toy (dust with maximum density `rho_c`), a finite-curvature crossing for the sensor, in the spirit of the pancake; it is not Gaztañaga's mechanism.
 
 ```bash
 python qgl_kasner.py        # symbolic Kasner table
 python qgl_bkl.py           # sensor through Mixmaster bounces
 python qgl_pancake.py       # pancake solution, curvature and sensor
 python qgl_tidal.py         # tides: Kasner cigar vs pancake
+python qgl_flrw.py          # toy FLRW vs LCDM / Tsallis / Pade
+python qgl_ccbh.py          # coupled-black-hole conversion toy
 pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 ```
 
@@ -499,6 +509,22 @@ pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 
 * S. Cotsakis, A. P. Yefremov, *100 years of mathematical cosmology: Models, theories, and problems*, [arXiv:2203.16443](https://arxiv.org/html/2203.16443v1).
   Survey covering the Kasner solution (Sec. 2.8), Bianchi models (Sec. 2.14) and BKL / Mixmaster (Secs. 3.4–3.5).
+
+* S. Capozziello, R. D'Agostino, O. Luongo, *Thermodynamic parametrization of dark energy*, [arXiv:2202.03300](https://arxiv.org/pdf/2202.03300).
+  Padé form of the dark-energy deceleration parameter; the second law on the apparent horizon requires q >= -1.
+
+* N. Shahhoseini, M. Malekjani, A. Khodam-Mohammadi, *LCDM Model Against Gravity-Thermodynamics Conjecture: Observational Constraints After DESI 2024*, [arXiv:2501.03655](https://arxiv.org/html/2501.03655v1).
+  Tsallis-entropy modified Friedmann equations, with beta = 1 recovering LCDM.
+
+* DESI Collaboration (G. Tarlé, contact author), *Positive Neutrino Masses with DESI DR2 via Matter Conversion to Dark Energy*, [Phys. Rev. Lett. 135, 081003 (2025)](https://journals.aps.org/prl/abstract/10.1103/yb2k-kn7h).
+  Tests matter conversion to dark energy through cosmologically coupled black holes tracking the star formation rate; the neutrino-mass result is model-dependent.
+
+* K. S. Croker et al., *DESI Dark Energy Time Evolution is Recovered by Cosmologically Coupled Black Holes*, [arXiv:2405.12282](https://arxiv.org/abs/2405.12282).
+
+* S. Ghodla, R. Easther, M. M. Briel, J. J. Eldridge, *Observational Implications of Cosmologically Coupled Black Holes*, [arXiv:2306.08199](https://arxiv.org/pdf/2306.08199v1).
+  Mass growth `m = m_i (a/a_i)^k`; finds merger rates and SMBH spins in tension with observations for `k = 3`.
+
+* E. Gaztañaga, *Cosmological bounce relics: Black holes, gravitational waves, and dark matter*, Phys. Rev. D 113 (2026), DOI 10.1103/pr4p-6m49 (known to me only through a [ScienceDaily summary](https://www.sciencedaily.com/releases/2026/08/260811011146.htm)).
 
 * Einstein Toolkit, [`EinsteinInitialData/Exact` thorn guide](https://einsteintoolkit.org/thornguide/EinsteinInitialData/Exact/documentation.html).
   Library of exact spacetimes (Kasner variants, Schwarzschild and Kerr in several coordinates, and others) as 3+1 initial data; useful as an independent cross-check for the exact solutions used here.
