@@ -244,6 +244,10 @@ QUANTUMGRAVITYLAB/
 ├── qgl_jc_lindblad.py      # Positivity-preserving decay for the JC sensor (core engine's is not)
 ├── figures/qgl_tokamak.png
 ├── qgl_ensemble.py         # Batch/ensemble orbit runner (CSV, parallel, seeded)
+├── qgl_einsteinpy.py       # EinsteinPy cross-checks: exact Schwarzschild/Kerr precession vs QGL
+├── qgl_kasner.py           # Kasner vacuum cosmology: symbolic check, geodesics, singularity morphology
+├── qgl_curvature.py        # Complexity scalar + JC sensor driven by the Kretschmann scalar K
+├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
 ├── requirements.txt
 ├── calibrate.py            # Precession-based calibration of complexity_power p, k_rq, etc.
@@ -422,6 +426,24 @@ that step with the Kraus form of the same two decay channels; the tokamak sensor
 is unchanged, and `test_core_decay_breaks_positivity` documents the problem.  Swapping the engine
 into the main pipeline would change its outputs slightly, so that is your call.
 
+### 4.6 Anisotropic cosmology and EinsteinPy (new)
+
+These modules are optional and need `pip install einsteinpy` for the symbolic and exact-GR parts.
+The core (`unified_sandbox_core.py`) is not modified.
+
+* **`qgl_einsteinpy.py`**: compares QGL's measured periapsis advance with the exact Schwarzschild value (elliptic-integral form) and with EinsteinPy's geodesics.
+* **`qgl_kasner.py`**: Kasner exponents and the two vacuum conditions, symbolic Ricci / Riemann / Kretschmann via EinsteinPy, exact timelike geodesics, and `singularity_type(p)` (point / cigar / barrel / pancake).
+  Vacuum Kasner is a cigar at the singularity unless it is flat, `(0, 0, 1)`.
+* **`qgl_curvature.py`**: rewrites the complexity scalar and the sensor density proxy in terms of K. On Schwarzschild this reproduces the radius-based forms exactly; it also works where there is no radius (Kasner, Mixmaster).
+* **`qgl_bkl.py`**: the Belinski–Khalatnikov–Lifshitz epoch map and a vacuum Bianchi IX (Mixmaster) integrator, with the sensor riding through the bounces on a comoving or a moving (geodesic) worldline.
+  The coupling from curvature and speed to the sensor is a modelling choice, not derived physics.
+
+```bash
+python qgl_kasner.py        # symbolic Kasner table
+python qgl_bkl.py           # sensor through Mixmaster bounces
+pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
+```
+
 ## 5. Scientific status and roadmap
 
 **What QGL *is***:
@@ -460,6 +482,18 @@ into the main pipeline would change its outputs slightly, so that is your call.
    * CPU ensembles of orbits now exist (`qgl_ensemble.py`).
    * Batch many orbits and JC sensors in parallel on GPU.
    * Turn QGL into a Monte-Carlo-style “quantum gravity lab” for exploring parameter spaces.
+
+### Further reading (anisotropic cosmology and exact solutions)
+
+* P.-P. Dechant, A. N. Lasenby, M. P. Hobson, *An anisotropic, non-singular early universe model leading to a realistic cosmology*, [arXiv:0809.4335](https://arxiv.org/html/0809.4335v2).
+  A scalar field in a biaxial Bianchi IX geometry gives a “pancaking” Big Bang with finite curvature invariants.
+  Also a compact statement of the point / pancake / cigar / barrel singularity types.
+
+* S. Cotsakis, A. P. Yefremov, *100 years of mathematical cosmology: Models, theories, and problems*, [arXiv:2203.16443](https://arxiv.org/html/2203.16443v1).
+  Survey covering the Kasner solution (Sec. 2.8), Bianchi models (Sec. 2.14) and BKL / Mixmaster (Secs. 3.4–3.5).
+
+* Einstein Toolkit, [`EinsteinInitialData/Exact` thorn guide](https://einsteintoolkit.org/thornguide/EinsteinInitialData/Exact/documentation.html).
+  Library of exact spacetimes (Kasner variants, Schwarzschild and Kerr in several coordinates, and others) as 3+1 initial data; useful as an independent cross-check for the exact solutions used here.
 
 ---
 

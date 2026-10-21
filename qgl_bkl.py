@@ -354,6 +354,69 @@ class Mixmaster:
 
 
 # --------------------------------------------------------------------------
+#  Moving observers: timelike geodesics of the Mixmaster metric
+# --------------------------------------------------------------------------
+
+def geodesic_frame_rhs(w, a, H, branch: int = +1):
+    """
+    Timelike geodesic of -dt^2 + sum a_i^2 sigma_i^2 in the orthonormal frame e_i = xi_i / a_i.
+
+    w_i are the frame components of the 4-velocity (u = gamma d_t + sum w_i e_i, gamma = sqrt(1 + w.w)),
+    a the scale factors and H = a'/a at the observer's time.  The covariant momenta P_i = a_i w_i along the
+    left-invariant fields xi_i obey an Euler-type equation (the group is SU(2)), and the expansion enters only
+    through the change of frame, so
+
+        dw_i/dtau = w_j w_k (a_j^2 - a_k^2) / (a_1 a_2 a_3)  -  (dt/dtau) H_i w_i ,   (i, j, k) cyclic
+
+    with dt/dtau = branch * gamma: +1 for the expanding direction, -1 toward the singularity.  The first term
+    is the only place the curvature of the slices acts; it vanishes when the scale factors are equal.
+    Returns (dw/dtau, dt/dtau).  Validated against a coordinate-Christoffel integration in tests/test_bkl_geodesic.py.
+    """
+    w, a, H = (np.asarray(v, dtype=float) for v in (w, a, H))
+    gamma = np.sqrt(1.0 + w @ w)
+    V = a[0] * a[1] * a[2]
+    dt = branch * gamma
+    dw = np.empty(3)
+    for i in range(3):
+        j, k = (i + 1) % 3, (i + 2) % 3
+        dw[i] = w[j] * w[k] * (a[j] ** 2 - a[k] ** 2) / V - dt * H[i] * w[i]
+    return dw, dt
+
+
+def mixmaster_geodesic(mm: "Mixmaster", w0: Sequence[float], t) -> dict:
+    """
+    Timelike geodesic of `mm` toward the singularity, started at t[0] with frame 4-velocity components w0
+    (the velocity relative to the comoving observers, in units of c; w0 = 0 is the comoving observer) and
+    sampled at the times t (descending, t[0] first).  Integrated in ln t.
+
+    Returns a dict of arrays on the grid t:
+        t, tau (proper time since t[0]), w (n, 3), gamma = sqrt(1 + w.w), speed = sqrt(1 - 1/gamma^2)
+    Note that as the singularity is approached the axes with positive exponent contract, w_i ~ 1/a_i grows,
+    gamma diverges and the observer's proper time per unit t shrinks: the clock slows relative to t.
+    """
+    t = np.asarray(t, dtype=float)
+    if t.ndim != 1 or len(t) < 2 or np.any(np.diff(t) >= 0.0):
+        raise ValueError("t must be a descending 1-D array with at least two points")
+    if not (mm.t_end <= t[-1] and t[0] <= mm.t0):
+        raise ValueError("t must lie inside the solution's range")
+
+    def rhs(s, y):
+        tt = np.exp(s)
+        x, v = mm.state(tt)
+        dw_dtau, dt_dtau = geodesic_frame_rhs(y[:3], np.exp(x[0]), v[0] / tt, branch=-1)
+        dtau_ds = tt / dt_dtau                                  # dt/ds = t, dt/dtau = -gamma
+        return np.concatenate([dw_dtau * dtau_ds, [dtau_ds]])
+
+    sol = solve_ivp(rhs, [np.log(t[0]), np.log(t[-1])], np.concatenate([np.asarray(w0, float), [0.0]]),
+                    t_eval=np.log(t), method="DOP853", rtol=1e-10, atol=1e-13)
+    if not sol.success:
+        raise RuntimeError(f"geodesic integration failed: {sol.message}")
+    w = sol.y[:3].T
+    gamma = np.sqrt(1.0 + np.sum(w ** 2, axis=1))
+    return dict(t=t, tau=sol.y[3], w=w, gamma=gamma, speed=np.sqrt(np.clip(1.0 - 1.0 / gamma ** 2, 0.0, 1.0)))
+
+
+# --------------------------------------------------------------------------
 #  Sensor riding through the bounces
 # --------------------------------------------------------------------------
 
@@ -361,7 +424,7 @@ def mixmaster_sensor_run(mm: Mixmaster, t_start: float, t_stop: float, rate_scal
                          cfg: Optional[Config] = None, K_ref: Optional[float] = None,
                          K_trans: Optional[float] = None, v_ref: float = 0.5,
                          steps_per_efold: float = 25.0, periods_per_step: float = 0.03,
-                         phase_per_step: float = 0.3) -> pd.DataFrame:
+                         phase_per_step: float = 0.3, w0: Optional[Sequence[float]] = None) -> pd.DataFrame:
     """
     Jaynes-Cummings sensor on a comoving observer of `mm`, from time-to-singularity
     t_start down to t_stop (t_start > t_stop), riding through whatever bounce lies
@@ -378,6 +441,12 @@ def mixmaster_sensor_run(mm: Mixmaster, t_start: float, t_stop: float, rate_scal
     changes sign at a bounce).  By default K_ref = K_trans = sqrt(K(t_start) K(t_stop)),
     so rho_hat = 1 and C_Q = 1/2 mid-window.  The potential term is zero and the observer is at
     rest relative to the comoving frame (speed 0): modelling choices, as in qgl_curvature.
+
+    Moving observer.  With `w0` (frame 4-velocity components at t_start, see `mixmaster_geodesic`) the sensor
+    rides a geodesic instead of the comoving worldline.  Curvature scalars depend only on t, so K(t) is the same;
+    what changes is (i) proper time: dtau = -dt / gamma, so the sensor ages less than the comoving clock, and
+    increasingly so as gamma grows toward the singularity, and (ii) the speed, which enters the sensor
+    coupling g through s_v.  Extra columns: gamma, w1, w2, w3.
     Columns: tau, t, K (the magnitude), C_Q, rho_hat, speed, omega_c, n, sigma_z, c, purity,
     K_signed, K_star, curv_term.
     """
@@ -404,10 +473,18 @@ def mixmaster_sensor_run(mm: Mixmaster, t_start: float, t_stop: float, rate_scal
         ts.append(t_next)
         K.append(float(mm.weyl_magnitude(t_next)[0]))
     ts, K = np.array(ts), np.array(K)
-    tau = float(t_start) - ts
+    if w0 is None:
+        tau, speed = float(t_start) - ts, np.zeros_like(ts)
+    else:
+        geo = mixmaster_geodesic(mm, w0, ts)
+        tau, speed = geo["tau"], geo["speed"]
 
-    df = qc.sensor_run_along(tau, K, np.zeros_like(tau), cfg=cfg, K_ref=K_ref, K_trans=K_trans, v_ref=v_ref)
+    df = qc.sensor_run_along(tau, K, speed, cfg=cfg, K_ref=K_ref, K_trans=K_trans, v_ref=v_ref)
     df.insert(1, "t", ts)
+    if w0 is not None:
+        df["gamma"] = geo["gamma"]
+        for i in range(3):
+            df[f"w{i + 1}"] = geo["w"][:, i]
     df["K_signed"], df["K_star"] = mm.weyl_invariants(ts)
     df["curv_term"] = mm.potential_fraction(ts)
     return df

@@ -76,6 +76,51 @@ def is_vacuum_kasner(p: Sequence, tol: float = 1e-12) -> bool:
 
 
 # --------------------------------------------------------------------------
+#  Singularity morphology
+# --------------------------------------------------------------------------
+
+def singularity_type(p: Sequence[float], direction: str = "singularity", tol: float = 1e-12) -> str:
+    """
+    Morphology of the scale factors a_i = t^p_i at the end of time selected by `direction`:
+
+        "singularity"  t -> 0+   (the Big Bang / Big Crunch end)
+        "late"         t -> infinity
+
+    An axis with a_i -> 0 is "collapsing", a_i -> infinity "stretching", p_i = 0 "finite".  Then
+
+        point    all three collapse
+        cigar    two collapse, one stretches
+        barrel   two collapse, one stays finite
+        pancake  exactly one collapses (the others stretch or stay finite)
+        none     no axis collapses
+
+    This classifies the scale factors only.  It says nothing about curvature: (0, 0, 1) is a "pancake" in this
+    sense but is flat spacetime (check `is_flat_kasner`), and the "late" end of any vacuum Kasner solution
+    has a collapsing axis but K -> 0, so it is not a singularity.  The literature's wording differs
+    (Dechant et al.: one radius -> 0, the others finite; Cotsakis & Yefremov: two expand, one contracts);
+    "exactly one collapses" covers both.
+    """
+    if direction not in ("singularity", "late"):
+        raise ValueError("direction must be 'singularity' or 'late'")
+    sign = 1.0 if direction == "singularity" else -1.0       # t -> infinity is t -> 0 with p -> -p
+    q = [sign * float(x) for x in p]
+    collapsing = sum(x > tol for x in q)
+    stretching = sum(x < -tol for x in q)
+    if collapsing == 3:
+        return "point"
+    if collapsing == 2:
+        return "cigar" if stretching == 1 else "barrel"
+    if collapsing == 1:
+        return "pancake"
+    return "none"
+
+
+def is_flat_kasner(p: Sequence[float], tol: float = 1e-12) -> bool:
+    """True when a vacuum Kasner solution is flat: the exponents are a permutation of (0, 0, 1)."""
+    return is_vacuum_kasner(p, tol) and sorted(abs(float(x)) for x in p)[1] <= tol
+
+
+# --------------------------------------------------------------------------
 #  Closed forms (no EinsteinPy needed)
 # --------------------------------------------------------------------------
 
