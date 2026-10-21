@@ -247,6 +247,8 @@ QUANTUMGRAVITYLAB/
 ├── qgl_einsteinpy.py       # EinsteinPy cross-checks: exact Schwarzschild/Kerr precession vs QGL
 ├── qgl_kasner.py           # Kasner vacuum cosmology: symbolic check, geodesics, singularity morphology
 ├── qgl_curvature.py        # Complexity scalar + JC sensor driven by the Kretschmann scalar K
+├── qgl_pancake.py          # Non-singular pancake Big Bang (biaxial Bianchi IX + scalar field), curvature and sensor through it
+├── qgl_tidal.py            # Comoving tidal tensors (Kasner, Schwarzschild, Mixmaster, pancake); tidal-driven complexity scalar
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
 ├── requirements.txt
@@ -437,10 +439,16 @@ The core (`unified_sandbox_core.py`) is not modified.
 * **`qgl_curvature.py`**: rewrites the complexity scalar and the sensor density proxy in terms of K. On Schwarzschild this reproduces the radius-based forms exactly; it also works where there is no radius (Kasner, Mixmaster).
 * **`qgl_bkl.py`**: the Belinski–Khalatnikov–Lifshitz epoch map and a vacuum Bianchi IX (Mixmaster) integrator, with the sensor riding through the bounces on a comoving or a moving (geodesic) worldline.
   The coupling from curvature and speed to the sensor is a modelling choice, not derived physics.
+* **`qgl_pancake.py`**: the non-singular pancake Big Bang of Dechant, Lasenby & Hobson (arXiv:0809.4335): a scalar field in a biaxial Bianchi IX universe where one scale factor goes through zero linearly while the curvature invariants stay finite.
+  The field equations are re-derived and checked against the paper's equations; the sensor is driven by K(t) through the pancake.
+* **`qgl_tidal.py`**: tidal eigenvalues `a_i''/a_i` for comoving observers, and a complexity scalar driven by the tidal strength.
+  Vacuum Kasner tides diverge like 1/t^2; at the pancake they stay finite.
 
 ```bash
 python qgl_kasner.py        # symbolic Kasner table
 python qgl_bkl.py           # sensor through Mixmaster bounces
+python qgl_pancake.py       # pancake solution, curvature and sensor
+python qgl_tidal.py         # tides: Kasner cigar vs pancake
 pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 ```
 
