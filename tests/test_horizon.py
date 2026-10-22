@@ -92,3 +92,63 @@ def test_whole_fibre_is_in_contact_from_arbitrarily_early(horizons):
 def test_summary_runs_and_is_finite():
     s = hz.summary()
     assert all(np.isfinite(v) for v in s.values())
+
+
+# ---------------------------------------------------------------- Mixmaster
+
+mp = pytest.importorskip("mpmath")
+import qgl_bkl as bk
+
+
+@pytest.fixture(scope="module")
+def mm_run():
+    u = float(np.pi)
+    mm = bk.Mixmaster(u, bk.clean_t0(u), 1.0, 1e-40)
+    return mm, hz.mixmaster_horizon_ode(mm, n=100000)
+
+
+def test_mixmaster_ode_horizon_converges(mm_run):
+    """h(t_cut) stops growing: the value at t_cut = 1e-20 is within 1e-3 of the value at 1e-40, for every axis."""
+    mm, ode = mm_run
+    i20 = int(np.argmin(np.abs(np.log(ode["t"]) - np.log(1e-20))))
+    assert np.all(ode["h"][-1] > 0)
+    assert np.allclose(ode["h"][i20], ode["h"][-1], rtol=1e-3)
+
+
+def test_mixmaster_v_exceeds_one_only_briefly(mm_run):
+    """v_i = p_i < 1 in every epoch; the bounce overshoots to about 1.1 (so t/a_i can grow briefly)."""
+    _, ode = mm_run
+    assert 1.0 < ode["v_max"].max() < 1.2
+
+
+def test_map_matches_ode_to_a_factor_two(mm_run):
+    mm, ode = mm_run
+    (p1, A1) = hz.epoch_amplitudes(mm)[0]
+    run = hz.mixmaster_horizon_map(mp.pi, A1, float(np.log(mm.t0)), 10, dps=200)
+    diff = np.log10(ode["h"][-1]) - np.array(run["log10_h"][-1])
+    assert np.all(np.abs(diff) < 0.3)
+
+
+@pytest.mark.parametrize("theta", [0.1, 0.5, 5.0])
+@pytest.mark.parametrize("u0", ["pi", "e", "sqrt3"])
+def test_map_horizon_saturates_for_infinitely_many_epochs(u0, theta):
+    """Between epoch 20 and epoch 40 the cumulative horizon does not change (to 1e-6 in log10), every axis."""
+    u = {"pi": lambda: mp.pi, "e": lambda: mp.e + 1, "sqrt3": lambda: mp.sqrt(3) + 2}[u0]()
+    mp.mp.dps = 100
+    run = hz.mixmaster_horizon_map(u, [37.4, 18.5, 18.5], 16.3, 40, theta=theta)
+    h20, h40 = np.array(run["log10_h"][19]), np.array(run["log10_h"][39])
+    assert np.all(np.isfinite(h40))
+    assert np.allclose(h20, h40, atol=1e-6)
+
+
+def test_b_is_non_increasing_across_epoch_starts():
+    mp.mp.dps = 100
+    run = hz.mixmaster_horizon_map(mp.pi, [37.4, 18.5, 18.5], 16.3, 30)
+    b = np.array(run["log10_b"])
+    assert np.all(np.diff(b, axis=0) <= 1e-9)
+
+
+def test_pancake_exponent_is_what_breaks_the_decay():
+    """With p = 1 on one axis b_i = t/a_i is constant (no decay), which is where the log divergence comes from."""
+    assert hz.horizon_type(1.0) == "logarithmic"
+    assert all(hz.horizon_type(float(x)) == "finite" for x in kn.kasner_exponents(2.0))
