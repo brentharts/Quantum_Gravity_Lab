@@ -116,10 +116,5 @@ def test_qgl_frame_dragging_has_the_exact_magnitude(kerr_spin_effect):
 
 
 @slow
-@pytest.mark.xfail(strict=True, reason=(
-    "QGL's frame-dragging acceleration is +Omega * (z_hat x v); exact Kerr needs the opposite sign "
-    "(prograde spin REDUCES the periapsis advance).  README writes v x z_hat, which has the right sign; "
-    "unified_sandbox_core._compute_acceleration_components implements the opposite.  Remove this "
-    "marker once the core is fixed."))
 def test_qgl_frame_dragging_has_the_exact_sign(kerr_spin_effect):
     assert np.sign(qe.qgl_spin_effect(P, E, SPIN)) == np.sign(kerr_spin_effect)
