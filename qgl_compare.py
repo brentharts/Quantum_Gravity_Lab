@@ -211,6 +211,13 @@ def plot_comparison(path: str, scenarios: Optional[List[Scenario]] = None, rate_
 
 
 def main() -> None:
+    import sys
+    if "--figure" in sys.argv:
+        import os
+        os.makedirs("figures", exist_ok=True)
+        plot_comparison("figures/qgl_compare.png")
+        print("wrote figures/qgl_compare.png")
+        return
     table, _ = compare()
     cols = ["scenario", "singular_history", "window", "K_hat_min", "K_hat_max", "max_dlnK_dtau", "C_Q_min", "C_Q_max",
             "omega_c_max", "n_final", "sigma_z_final"]

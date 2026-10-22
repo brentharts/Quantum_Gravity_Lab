@@ -209,6 +209,123 @@ def summary(a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: float = 0.5, t
                 base_angle_t1=float(hz["base"][i1]))
 
 
+# --------------------------------------------------------------------------
+#  Figures
+# --------------------------------------------------------------------------
+
+_PAL = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#000000"]   # Okabe-Ito
+
+
+def plot_pancake_horizons(path: str, a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: float = 0.5) -> None:
+    """Three panels: null-ray angles round the fibre and across the base; proper sizes; Kasner horizon vs exponent."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    sol = qp.pancake_solution(a0, b0, f0, m, t_max=6.0)
+    hz = pancake_horizons(sol)
+    t, tc = hz["t"], base_contact_time(pancake_horizons(sol))
+    fig, ax = plt.subplots(1, 3, figsize=(15, 4.6), constrained_layout=True)
+
+    a = ax[0]
+    a.plot(t, hz["fibre"], color=_PAL[1], lw=1.8, label=r"fibre (collapsing, $R_1\approx a_0 t$), from $t_{in}=10^{-4}$")
+    t_in = 1e-9
+    tt = np.geomspace(t_in, 1.0, 200)
+    a.plot(tt, fibre_log_coefficient(a0) * np.log(tt / t_in), color=_PAL[1], lw=1.2, ls="--",
+           label=r"$(2/a_0)\ln(t/t_{in})$, $t_{in}=10^{-9}$")
+    a.plot(t, hz["base"], color=_PAL[0], lw=1.8, label=r"base $S^2$ (open, $R_2\to b_0$)")
+    a.axhline(np.pi, color="0.5", lw=0.9)
+    a.text(3e-9, np.pi * 0.62, r"$\pi$: antipodal points of the base", fontsize=8, color="0.3")
+    a.axhline(FIBRE_PERIOD, color="0.7", lw=0.9, ls=":")
+    a.text(3e-9, FIBRE_PERIOD * 1.08, r"$4\pi$: one turn of the fibre", fontsize=8, color="0.4")
+    a.axvline(tc, color=_PAL[0], lw=0.9, ls=":")
+    a.set(xscale="log", yscale="log", ylim=(1e-3, 80), xlim=(1e-9, 12), xlabel="t after the pancake", ylabel="comoving null-ray angle",
+          title="Which direction has no horizon?")
+    a.legend(frameon=False, fontsize=8, loc="lower right")
+
+    a = ax[1]
+    a.plot(t, hz["fibre_circumference"], color=_PAL[1], lw=1.8, label=r"fibre circumference $2\pi R_1$")
+    a.plot(t, 2 * np.pi * sol["R"][sol["t"] > 0][:, 1], color=_PAL[0], lw=1.8, label=r"base circumference $2\pi R_2$")
+    a.plot(t, hz["proper_reach"], color="0.2", lw=1.4, ls="--", label="distance light has covered ($=t$)")
+    a.set(xscale="log", yscale="log", xlabel="t after the pancake", ylabel="proper length",
+          title="Open directions stay big, light reaches only about t")
+    a.legend(frameon=False, fontsize=8, loc="lower right")
+
+    a = ax[2]
+    p = np.linspace(-0.5, 0.995, 400)
+    a.plot(p, [kasner_comoving_horizon(x, 1.0) for x in p], color="0.25", lw=1.6)
+    for u, col in zip((1.5, 2.0, 3.0, 5.0), _PAL[2:6]):
+        for x in kn.kasner_exponents(u):
+            a.plot([float(x)], [kasner_comoving_horizon(float(x), 1.0)], "o", color=col, ms=5,
+                   label=f"vacuum Kasner u={u}" if x == kn.kasner_exponents(u)[0] else None)
+    a.axvline(1.0, color=_PAL[1], lw=1.2, ls="--")
+    a.text(-0.45, 5.6, r"$p=1$: pancake," + "\nlogarithmic divergence", color=_PAL[1], fontsize=8)
+    a.set(ylim=(0, 8), xlabel=r"Kasner exponent $p_i$", ylabel=r"comoving horizon $\int_0^1 t^{-p}dt$",
+          title=r"Only $p\geq 1$ breaks the horizon")
+    a.legend(frameon=False, fontsize=8, loc="upper left")
+    for q in ax:
+        q.grid(alpha=0.25)
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def plot_mixmaster_horizons(path: str, n_epochs: int = 40) -> None:
+    """Three panels: ODE horizon vs approach to the singularity; map horizon vs epoch; t/a_i at epoch starts."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import mpmath as mp
+    import qgl_bkl as bk
+    u = float(np.pi)
+    mm = bk.Mixmaster(u, bk.clean_t0(u), 1.0, 1e-40)
+    ode = mixmaster_horizon_ode(mm, n=200000)
+    (_, A1) = epoch_amplitudes(mm)[0]
+    mp.mp.dps = 60 + 25 * n_epochs
+    runs = {th: mixmaster_horizon_map(mp.pi, A1, float(np.log(mm.t0)), n_epochs, theta=th)
+            for th in (0.1, 0.5, 5.0)}
+    cols = _PAL[:3]
+    names = ["axis 1", "axis 2", "axis 3"]
+    fig, ax = plt.subplots(1, 3, figsize=(15, 4.6), constrained_layout=True)
+
+    a = ax[0]
+    for i in range(3):
+        a.plot(np.log10(ode["t"]), np.log10(np.maximum(ode["h"][:, i], 1e-300)), color=cols[i], lw=1.8, label=names[i])
+    a.set(xlabel=r"$\log_{10}$ (time to singularity)", ylabel=r"$\log_{10}\int_{t_{cut}}^{t_0} dt/a_i$",
+          ylim=(-9, 0), xlim=(8, -41), title="Numerical Bianchi IX: horizon stops growing")
+    a.legend(frameon=False, fontsize=8, loc="center right")
+
+    a = ax[1]
+    k = np.arange(1, n_epochs + 1)
+    for th, ls in zip(runs, (":", "-", "--")):
+        h = np.array(runs[th]["log10_h"])
+        for i in range(3):
+            a.plot(k, h[:, i], color=cols[i], lw=1.5, ls=ls, label=names[i] if th == 0.5 else None)
+    a.plot([], [], color="0.3", ls=":", label=r"wall $\theta=0.1$")
+    a.plot([], [], color="0.3", ls="-", label=r"$\theta=0.5$")
+    a.plot([], [], color="0.3", ls="--", label=r"$\theta=5$")
+    a.set(xlabel="Kasner epoch (BKL map, $u_0=\\pi$)", ylabel=r"$\log_{10}h_i$ (cumulative)",
+          title="Infinitely many epochs: the sum converges")
+    a.legend(frameon=False, fontsize=8, ncol=2, loc="center right")
+
+    a = ax[2]
+    b = np.array(runs[0.5]["log10_b"])
+    for i in range(3):
+        a.plot(k, -b[:, i], color=cols[i], lw=1.6, label=names[i])
+    a.set(yscale="log", xlabel="Kasner epoch", ylabel=r"$-\log_{10}(t/a_i)$ at the epoch start",
+          title=r"$t/a_i$ shrinks in every epoch ($1-p_i>0$)")
+    a.legend(frameon=False, fontsize=8)
+    for q in ax:
+        q.grid(alpha=0.25)
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def make_figures(directory: str = "figures") -> None:
+    import os
+    os.makedirs(directory, exist_ok=True)
+    plot_pancake_horizons(os.path.join(directory, "qgl_horizon_pancake.png"))
+    plot_mixmaster_horizons(os.path.join(directory, "qgl_horizon_mixmaster.png"))
+
+
 def mixmaster_report() -> None:
     import mpmath as mp
     import qgl_bkl as bk
@@ -241,4 +358,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if "--figures" in sys.argv:
+        make_figures()
+    else:
+        main()

@@ -242,7 +242,9 @@ QUANTUMGRAVITYLAB/
 ├── qgl_precession.py       # Event-based precession measurement + exact complexity_power solve
 ├── qgl_tokamak.py          # Tokamak mode: ion packet in a toroidal field, trapped/passing orbits, JC sensor
 ├── qgl_jc_lindblad.py      # Positivity-preserving decay for the JC sensor (core engine's is not)
+├── Makefile                # make install / test / test-slow / figures (see make help)
 ├── figures/qgl_tokamak.png
+├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png
 ├── qgl_ensemble.py         # Batch/ensemble orbit runner (CSV, parallel, seeded)
 ├── qgl_einsteinpy.py       # EinsteinPy cross-checks: exact Schwarzschild/Kerr precession vs QGL
 ├── qgl_kasner.py           # Kasner vacuum cosmology: symbolic check, geodesics, singularity morphology
@@ -296,14 +298,18 @@ QGL uses a standard scientific Python stack.
 git clone https://github.com/<your-handle>/QuantumGravityLab.git
 cd QuantumGravityLab
 
-python -m venv .venv
-# Linux / macOS:
-source .venv/bin/activate
-# Windows:
-# .venv\Scripts\activate
-
-pip install numpy scipy matplotlib pandas
+make install        # Ubuntu: apt packages, a .venv, and every Python package including EinsteinPy
 ```
+
+`make install` runs `apt-get` (with `sudo` unless you are root) for `python3`, `python3-venv`, `python3-pip`, `python3-dev`, `build-essential` and `git`, creates `.venv`, and installs `requirements.txt` (NumPy, SciPy, pandas, Matplotlib, pytest, EinsteinPy, SymPy, mpmath). Use `make install SKIP_APT=1` to skip the apt step, or set up by hand on other systems:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Other targets (`make help` lists them): `make test` (fast suite), `make test-slow` (EinsteinPy geodesic checks), `make test-all`, `make figures` (every figure in `figures/`, about a minute), `make figure-compare`, `make figure-horizon`, `make figure-tokamak`, `make check-install`, `make clean`.
 
 The reference implementation runs on CPU; array backends can be swapped to CuPy / JAX for GPU experiments.
 
@@ -464,6 +470,20 @@ The core (`unified_sandbox_core.py`) is not modified.
 * **`qgl_horizon.py`**: tests the idea that the pancake's open directions break cosmological horizons. In our pancake model it is the *collapsing* direction (the closed fibre, `R_1 ~ a0 t`) whose horizon diverges, as `(2/a0) ln(t/t_in)`, so a light ray winds ever more times round a circle of vanishing circumference. The two open directions (`R_2 = R_3 -> b0`) keep an ordinary finite horizon of proper size ~ `t`; antipodal points of the base S^2 first meet at `t ~ pi b0/2` (about 5.1 for `b0 = 3`). For Kasner the comoving horizon is `t^(1-p)/(1-p)`, divergent only for `p >= 1`, which in vacuum is only `(1, 0, 0)`. **Mixmaster:** with the same criterion (`h_i = ∫ dt/a_i`, a proxy for Bianchi IX that I have not checked against real null geodesics) every axis has a *finite* horizon, the opposite of Misner's hope, because `t/a_i` shrinks like `t^(1-p_i)` in every epoch and `p_i < 1`; the numerical solution and a multi-precision sharp-wall BKL map (checked against it to a factor 2 in `h`) both saturate. Bounces briefly push `v_i` to about 1.1, which the map ignores. Misner's own argument was about the Hubble horizon of a momentarily static axis, and Chitre (1972) found circumnavigating light has vanishing measure (abstract only read). The fibre period `4 pi` is the standard-`S^3` value, not checked against the paper.
 * **Frame-dragging sign.** `unified_sandbox_core.py` previously applied the Lense–Thirring term as `z_hat x v`, opposite to the `a_LT = Omega (v x z_hat)` written above. It now follows the README, and `test_qgl_frame_dragging_has_the_exact_sign` (against exact Kerr geodesics, prograde spin reduces the periapsis advance) passes without `xfail`.
 
+**Figures.**
+
+Common footing for Kasner, Mixmaster, the pancake, the bounce, LCDM and the two toys (`python qgl_compare.py`, or `qgl_compare.plot_comparison`). Left: curvature in units of its value at the fiducial event. Right: the sensor's complexity scalar. LCDM, the sigmoid toy and the CCBH toy lie on top of each other.
+
+![comparison on a common K(t) and sensor footing](figures/qgl_compare.png)
+
+Horizons at the pancake (`python qgl_horizon.py --figures`). Left: the collapsing fibre has a logarithmically divergent null-ray angle (dashed: the analytic law from `t_in = 1e-9`), the open base has a finite one that reaches `pi` only at `t ~ 5`. Middle: the fibre circle shrinks, the base stays large, light covers only about `t`. Right: the Kasner horizon integral diverges only at `p = 1`.
+
+![pancake horizons](figures/qgl_horizon_pancake.png)
+
+Horizons through the Mixmaster bounces (same command). Left: the numerical Bianchi IX horizon along each axis stops growing. Middle: the sharp-wall BKL map over 40 epochs, for three wall positions. Right: `-log10(t/a_i)` at each epoch start only grows, so `t/a_i` shrinks.
+
+![Mixmaster horizons](figures/qgl_horizon_mixmaster.png)
+
 ```bash
 python qgl_kasner.py        # symbolic Kasner table
 python qgl_bkl.py           # sensor through Mixmaster bounces
@@ -473,7 +493,8 @@ python qgl_tidal.py         # tides: Kasner cigar vs pancake
 python qgl_flrw.py          # toy FLRW vs LCDM / Tsallis / Pade
 python qgl_ccbh.py          # coupled-black-hole conversion toy
 python qgl_compare.py       # all scenarios on a common K(t) and sensor footing
-python qgl_horizon.py       # particle horizons: Kasner and pancake
+python qgl_horizon.py       # particle horizons: Kasner, pancake, Mixmaster
+python qgl_horizon.py --figures   # regenerate figures/qgl_horizon_*.png (about 10 s)
 pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 ```
 
