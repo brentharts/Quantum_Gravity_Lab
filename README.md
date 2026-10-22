@@ -252,6 +252,7 @@ QUANTUMGRAVITYLAB/
 ├── qgl_flrw.py             # TOY flat-FLRW history with a sigmoid 'entropy' dark term vs LCDM, Tsallis and Pade models; sensor along it
 ├── qgl_ccbh.py             # TOY cosmologically-coupled black hole conversion (matter -> dark-energy-like), single-BH growth/spin laws
 ├── qgl_compare.py          # Side-by-side Kasner / Mixmaster / pancake / bounce / LCDM / toy / CCBH on one K(t) and sensor footing
+├── qgl_horizon.py          # Particle horizons at Kasner and pancake singularities (which axes can exchange light)
 ├── qgl_bkl_sweep.py        # Scan of the Mixmaster starting parameter u: epochs, bounces, sensor response
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
@@ -460,6 +461,7 @@ The core (`unified_sandbox_core.py`) is not modified.
   Each history is normalised to its own fiducial event (`K_hat = |K|/K_ref`, `tau_hat = (tau - tau_fid)/K_ref^(-1/4)`) and the same sensor is run with `K_ref = K_trans = 1`, so `C_Q = 1/2` at that event.
   Result: the singular histories drive `K_hat` up by orders of magnitude and the sensor with them; the pancake and the bounce stay finite and never do. LCDM, the sigmoid toy and the CCBH toy differ in `K_hat` by tens of percent, yet their `C_Q` histories agree to about 0.02, because `C_Q` depends only weakly on `K` (`K^(p/6)`). The sensor, as configured, cannot tell those three apart.
   The toys are our own and the footing is a convention, not a physical equivalence. Figure: `figures/qgl_compare.png`.
+* **`qgl_horizon.py`**: tests the idea that the pancake's open directions break cosmological horizons. In our pancake model it is the *collapsing* direction (the closed fibre, `R_1 ~ a0 t`) whose horizon diverges, as `(2/a0) ln(t/t_in)`, so a light ray winds ever more times round a circle of vanishing circumference. The two open directions (`R_2 = R_3 -> b0`) keep an ordinary finite horizon of proper size ~ `t`; antipodal points of the base S^2 first meet at `t ~ pi b0/2` (about 5.1 for `b0 = 3`). For Kasner the comoving horizon is `t^(1-p)/(1-p)`, divergent only for `p >= 1`, which in vacuum is only `(1, 0, 0)`. Mixmaster horizons are not tested. The fibre period `4 pi` is the standard-`S^3` value, not checked against the paper.
 * **Frame-dragging sign.** `unified_sandbox_core.py` previously applied the Lense–Thirring term as `z_hat x v`, opposite to the `a_LT = Omega (v x z_hat)` written above. It now follows the README, and `test_qgl_frame_dragging_has_the_exact_sign` (against exact Kerr geodesics, prograde spin reduces the periapsis advance) passes without `xfail`.
 
 ```bash
@@ -471,6 +473,7 @@ python qgl_tidal.py         # tides: Kasner cigar vs pancake
 python qgl_flrw.py          # toy FLRW vs LCDM / Tsallis / Pade
 python qgl_ccbh.py          # coupled-black-hole conversion toy
 python qgl_compare.py       # all scenarios on a common K(t) and sensor footing
+python qgl_horizon.py       # particle horizons: Kasner and pancake
 pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 ```
 
