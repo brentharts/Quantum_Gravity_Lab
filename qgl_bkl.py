@@ -39,6 +39,7 @@ Needs only numpy/scipy (and pandas via qgl_curvature); EinsteinPy is not used he
 from __future__ import annotations
 
 import copy
+import warnings
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -112,7 +113,9 @@ def ricci3(a: np.ndarray) -> np.ndarray:
     out = np.empty_like(q)
     for i in range(3):
         j, k = (i + 1) % 3, (i + 2) % 3
-        out[..., i] = (q[..., i] ** 2 - (q[..., j] - q[..., k]) ** 2) / (2.0 * P)
+        # q_i^2 - (q_j - q_k)^2 = (q_i - q_j + q_k)(q_i - q_k + q_j); differencing the large terms first avoids
+        # catastrophic cancellation when one scale factor is tiny (e.g. near a pancake)
+        out[..., i] = ((q[..., i] - q[..., j]) + q[..., k]) * ((q[..., i] - q[..., k]) + q[..., j]) / (2.0 * P)
     return out
 
 
@@ -241,6 +244,24 @@ def initial_state(u: float, t0: float, t_bounce: float) -> Tuple[float, np.ndarr
     return float(x.sum()), np.concatenate([x, v / t0])
 
 
+def first_epoch_term(u: float, t0: float, t_bounce: float) -> float:
+    """
+    Size of the negative-axis curvature term, (t_bounce / t0)^(4 |p_1|) / 2, in the first Kasner epoch at its start
+    (see `initial_state`).  It must be small for the first epoch to be a clean Kasner epoch.
+    """
+    p1 = abs(qk.kasner_exponents(float(u))[0])
+    return 0.5 * (t_bounce / t0) ** (4.0 * p1)
+
+
+def clean_t0(u: float, t_bounce: float = 1.0, tol: float = 1e-6) -> float:
+    """
+    Starting time t0 for which `first_epoch_term` equals tol.  p_1 = -u / (1 + u + u^2) -> 0 as u grows, so a fixed
+    t0 (such as 1e6) is only clean for moderate u: at u = 8.5 the term is already 3e-3 and the first epoch is lost.
+    """
+    p1 = abs(qk.kasner_exponents(float(u))[0])
+    return float(t_bounce * (0.5 / tol) ** (1.0 / (4.0 * p1)))
+
+
 class Mixmaster:
     """
     A numerical vacuum Bianchi IX solution, integrated from a Kasner epoch toward the
@@ -253,6 +274,11 @@ class Mixmaster:
                  rtol: float = 1e-11, atol: float = 1e-13):
         if not (t_end < t_bounce < t0):
             raise ValueError("need t_end < t_bounce < t0")
+        term = first_epoch_term(u, t0, t_bounce)
+        if term > 1e-3:
+            warnings.warn(f"first Kasner epoch is not clean (curvature term {term:.2g} at t0 for u = {u}); "
+                          f"use t0 >= clean_t0(u, t_bounce) = {clean_t0(u, t_bounce):.3g}", RuntimeWarning,
+                          stacklevel=2)
         eta0, y0 = initial_state(u, t0, t_bounce)
         eta_end = eta0 - np.log(t0 / t_end)
         sol = solve_ivp(_rhs_eta, [eta0, eta_end], y0, method="DOP853",
@@ -324,7 +350,10 @@ class Mixmaster:
         return np.max(np.abs((t * t)[:, None] * ricci3(np.exp(x))), axis=1)
 
     def bounce_times(self, n_grid: int = 40000, threshold: float = 0.05) -> np.ndarray:
-        """Times (descending) at which the curvature term peaks above `threshold`: the bounces."""
+        """
+        Times (descending) at which the curvature term peaks above `threshold`: the bounces.  The default 0.05 misses
+        the weak bounces at large u (their peak is ~0.03 at u = 8.5); use the epoch threshold (~2e-3) there.
+        """
         t = np.exp(np.linspace(np.log(self.t0), np.log(self.t_end), n_grid))
         W = self.potential_fraction(t)
         peak = (W[1:-1] > W[:-2]) & (W[1:-1] >= W[2:]) & (W[1:-1] > threshold)

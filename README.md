@@ -251,6 +251,7 @@ QUANTUMGRAVITYLAB/
 ├── qgl_tidal.py            # Comoving tidal tensors (Kasner, Schwarzschild, Mixmaster, pancake); tidal-driven complexity scalar
 ├── qgl_flrw.py             # TOY flat-FLRW history with a sigmoid 'entropy' dark term vs LCDM, Tsallis and Pade models; sensor along it
 ├── qgl_ccbh.py             # TOY cosmologically-coupled black hole conversion (matter -> dark-energy-like), single-BH growth/spin laws
+├── qgl_bkl_sweep.py        # Scan of the Mixmaster starting parameter u: epochs, bounces, sensor response
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
 ├── requirements.txt
@@ -443,6 +444,7 @@ The core (`unified_sandbox_core.py`) is not modified.
   The coupling from curvature and speed to the sensor is a modelling choice, not derived physics.
 * **`qgl_pancake.py`**: the non-singular pancake Big Bang of Dechant, Lasenby & Hobson (arXiv:0809.4335): a scalar field in a biaxial Bianchi IX universe where one scale factor goes through zero linearly while the curvature invariants stay finite.
   The field equations are re-derived and checked against the paper's equations; the sensor is driven by K(t) through the pancake.
+  Also: the paper's own parameters (about 50 e-folds of scalar-driven inflation, R1/R2 -> 1), triaxial perturbations (the anisotropy freezes forward in time, but the curvature grows like delta^2/t^4 toward the pancake), and geodesics that wind logarithmically round the closed x-direction while spending almost no proper time at the crossing.
 * **`qgl_tidal.py`**: tidal eigenvalues `a_i''/a_i` for comoving observers, and a complexity scalar driven by the tidal strength.
   Vacuum Kasner tides diverge like 1/t^2; at the pancake they stay finite.
 * **`qgl_flrw.py`**: a flat-FLRW *toy* with a sigmoid-switched dark term, compared with LCDM, a Tsallis-horizon model and a Padé deceleration model, with a horizon-entropy second-law check (dS/dt >= 0 is q >= -1) and the sensor riding the expansion history.
@@ -451,10 +453,13 @@ The core (`unified_sandbox_core.py`) is not modified.
   Written from the stated physics, not from the DESI / Croker et al. equations, so it does not test those papers.
   In this bookkeeping `k = 3` needs a conversion efficiency of about 3.7 times all stellar mass formed to supply Omega_DE = 0.7.
 * `qgl_flrw.py` also holds an exact **bounce** toy (dust with maximum density `rho_c`), a finite-curvature crossing for the sensor, in the spirit of the pancake; it is not Gaztañaga's mechanism.
+* **`qgl_bkl_sweep.py`**: scans the Mixmaster starting parameter `u`; for each value it reports the Kasner exponents found against the Landau–Lifshitz map, the analytic epoch curvature `16u²(1+u)²/(1+u+u²)³ / t⁴`, the bounces, and the sensor's response to the first bounce.
+  Large `u` is close to the flat `(0, 0, 1)` Kasner limit, so its bounces are late and gentle.
 
 ```bash
 python qgl_kasner.py        # symbolic Kasner table
 python qgl_bkl.py           # sensor through Mixmaster bounces
+python qgl_bkl_sweep.py     # scan the starting u
 python qgl_pancake.py       # pancake solution, curvature and sensor
 python qgl_tidal.py         # tides: Kasner cigar vs pancake
 python qgl_flrw.py          # toy FLRW vs LCDM / Tsallis / Pade
