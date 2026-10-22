@@ -152,3 +152,9 @@ def test_pancake_exponent_is_what_breaks_the_decay():
     """With p = 1 on one axis b_i = t/a_i is constant (no decay), which is where the log divergence comes from."""
     assert hz.horizon_type(1.0) == "logarithmic"
     assert all(hz.horizon_type(float(x)) == "finite" for x in kn.kasner_exponents(2.0))
+
+
+def test_horizon_figures_are_written(tmp_path):
+    hz.make_figures(str(tmp_path))
+    for name in ("qgl_horizon_pancake.png", "qgl_horizon_mixmaster.png"):
+        assert (tmp_path / name).stat().st_size > 20000
