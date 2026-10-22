@@ -20,8 +20,21 @@ metrics we already have.  Short version of what comes out (the tests pin each st
 * The model also continues through t = 0 to t < 0, so "the horizon at the singularity" is partly a statement about
   where one starts counting.  With the continuation the null ray's comoving range is finite on the open axes.
 
-Everything here is geometry of our own model; the coupling to any sensor is not involved.  Not done: Mixmaster
-horizons (Misner's claim that infinitely many epochs make them divergent in every direction is not tested here).
+Mixmaster (second half of the module).  Misner's hope was that the endless change of which axis expands makes
+horizons vanish in every direction.  With the usual criterion h_i = int dt / a_i (exact comoving range of a null
+ray along axis i in the Abelian Bianchi I limit; a proxy for Bianchi IX, which I have not checked against real null
+geodesics) the answer here is the opposite: every axis has a FINITE horizon.  Reason: b_i = t / a_i obeys
+d ln b_i / d ln t = 1 - v_i, and 1 - v_i = 1 - p_i > 0 inside every vacuum Kasner epoch, so b_i shrinks towards
+the singularity epoch after epoch and h_i = int b_i d ln t converges.  The only way round this is p_i = 1 (the
+pancake exponents), which Mixmaster never has.  The bounces themselves briefly push v_i to about 1.1 (measured
+below), so b_i can grow a little there; that does not change the conclusion in the runs made.
+The infinite epoch sequence is handled with a sharp-wall BKL map in multi-precision arithmetic, calibrated against
+the numerical Bianchi IX solution for its first epochs (`mixmaster_horizon_ode`).  Misner's own argument concerned the
+Hubble horizon of a momentarily static direction, not this integral, and Chitre (1972, Misner's student) found that
+the set of initial conditions with light circumnavigating the universe has measure going to zero as the volume
+shrinks; I have only read the abstract of that thesis.
+
+Everything here is geometry of our own model; the coupling to any sensor is not involved.
 """
 
 from __future__ import annotations
@@ -116,6 +129,74 @@ def fibre_time_to_wrap(a0: float, t: float, turns: float = 1.0) -> float:
     return float(t * np.exp(-turns * FIBRE_PERIOD * a0 / 2.0))
 
 
+# --------------------------------------------------------------------------
+#  Mixmaster
+# --------------------------------------------------------------------------
+
+def mixmaster_horizon_ode(mm, n: int = 400000) -> Dict[str, np.ndarray]:
+    """
+    h_i(t_cut) = int_{t_cut}^{t0} dt / a_i along a numerical `qgl_bkl.Mixmaster` (t = time to the singularity, so
+    t_cut -> 0 is the approach to it), on a log grid of n points.  Keys: t, h (n, 3), v_max (3,).
+    """
+    lnt = np.linspace(np.log(mm.t0), np.log(mm.t_end), n)
+    t = np.exp(lnt)
+    x, v = mm.state(t)
+    h = cumulative_trapezoid(t[:, None] * np.exp(-x), -lnt, axis=0, initial=0.0)
+    return dict(t=t, h=h, v_max=v.max(axis=0))
+
+
+def epoch_amplitudes(mm, n_grid: int = 200000):
+    """Per Kasner epoch of a `Mixmaster` run: (exponents p, amplitudes A with ln a_i = A_i + p_i ln t)."""
+    out = []
+    for e in mm.epochs(n_grid=n_grid):
+        tm = float(np.sqrt(e["t_start"] * e["t_end"]))
+        x, _ = mm.state(tm)
+        out.append((e["v"], x[0] - e["v"] * np.log(tm)))
+    return out
+
+
+def mixmaster_horizon_map(u0, A0: Sequence[float], ln_t0: float, n_epochs: int, theta: float = 0.5,
+                          dps: int = 0) -> Dict[str, list]:
+    """
+    Horizon integrals through n_epochs Kasner epochs of the sharp-wall BKL map, in multi-precision (mpmath).
+
+    Epoch k has ln a_i = A_i + p_i s (s = ln t, decreasing).  The wall term of the negative axis n is
+    (1/2) exp(4 (A_n - sum A / 2) + 4 p_n s); the bounce is placed where it reaches `theta` (0.5 reproduces the numerical
+    amplitudes of qgl_bkl to about 0.5 in ln a), exponents follow `qgl_bkl.bkl_transition`, and ln a_i is continuous.
+    Each epoch adds  e^(-A_i) [e^(q s_start) - e^(q s_end)] / q,  q = 1 - p_i, to h_i.
+    `u0` may be an mpmath number (use an irrational one: rational u terminates the BKL map).  `A0` is the first epoch's
+    amplitudes (axis order: negative, middle, large exponent) starting at ln t = `ln_t0`.
+    Returns per-epoch lists: p, s_bounce, log10_b (b_i = t/a_i at the epoch start) and log10_h (cumulative).
+    """
+    import mpmath as mp
+    mp.mp.dps = dps or (60 + 25 * n_epochs)
+    u = mp.mpf(u0)
+    D = 1 + u + u * u
+    p = [-u / D, (1 + u) / D, u * (1 + u) / D]
+    A = [mp.mpf(a) for a in A0]
+    s_start = mp.mpf(ln_t0)
+    h = [mp.mpf(0)] * 3
+    out = dict(p=[], s_bounce=[], log10_b=[], log10_h=[])
+    for _ in range(n_epochs):
+        n = min(range(3), key=lambda i: p[i])
+        c = 4 * (A[n] - sum(A) / 2)
+        sb = (mp.log(2 * theta) - c) / (4 * p[n])
+        sb = min(sb, s_start)                       # a bounce cannot lie before the epoch starts
+        out["p"].append([float(x) for x in p])
+        out["log10_b"].append([float(mp.log10(mp.e ** (s_start - A[i] - p[i] * s_start))) for i in range(3)])
+        for i in range(3):
+            q = 1 - p[i]
+            h[i] += mp.e ** (-A[i] + q * s_start) * (1 - mp.e ** (q * (sb - s_start))) / q
+        out["s_bounce"].append(float(sb))
+        out["log10_h"].append([float(mp.log10(x)) if x > 0 else float("-inf") for x in h])
+        den = 1 + 2 * p[n]
+        pn = [(p[i] + 2 * p[n]) / den for i in range(3)]
+        pn[n] = abs(p[n]) / den
+        A = [A[i] + (p[i] - pn[i]) * sb for i in range(3)]
+        p, s_start = pn, sb
+    return out
+
+
 def summary(a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: float = 0.5, t_max: float = 6.0) -> Dict[str, float]:
     sol = qp.pancake_solution(a0, b0, f0, m, t_max=t_max)
     hz = pancake_horizons(sol)
@@ -128,6 +209,24 @@ def summary(a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: float = 0.5, t
                 base_angle_t1=float(hz["base"][i1]))
 
 
+def mixmaster_report() -> None:
+    import mpmath as mp
+    import qgl_bkl as bk
+    u = float(np.pi)
+    mm = bk.Mixmaster(u, bk.clean_t0(u), 1.0, 1e-40)
+    ode = mixmaster_horizon_ode(mm, n=200000)
+    (p1, A1) = epoch_amplitudes(mm)[0]
+    mp.mp.dps = 200
+    mp_run = mixmaster_horizon_map(mp.pi, A1, float(np.log(mm.t0)), 40)
+    n_ep = len(mm.epochs())
+    print("\nMixmaster, u0=pi numerical solution to t=1e-40: h_i =", np.array2string(ode["h"][-1], precision=3),
+          " max v_i =", np.round(ode["v_max"], 3))
+    print(f"  log10 of those: {np.round(np.log10(ode['h'][-1]), 3)}  ({n_ep} epochs)")
+    print("BKL sharp-wall map, u0=pi, 40 epochs: log10 h_i after epochs 1, 3, 10, 40:")
+    for k in (0, 2, 9, 39):
+        print(f"  epoch {k + 1:2d}: log10 h = {np.round(mp_run['log10_h'][k], 3)}")
+
+
 def main() -> None:
     print("Kasner comoving horizon type per axis (t^(1-p)/(1-p) for p<1, divergent for p>=1)")
     for r in kasner_horizon_table():
@@ -138,6 +237,7 @@ def main() -> None:
     print(f"  base S^2 antipodal contact at t = {s['t_contact_base']:.2f}   (pi b0/2 = {s['pi_b0_over_2']:.2f} if R_2 stayed b0)")
     print(f"  fibre turns by t=1, counted from t_in={s['t_in']:.0e}: {s['fibre_turns_t1']:.2f}  (grows like ln(1/t_in))")
     print(f"  fibre circumference at t=1: {s['fibre_circumference_t1']:.2f};  base angle covered by t=1: {s['base_angle_t1']:.2f} rad of pi")
+    mixmaster_report()
 
 
 if __name__ == "__main__":
