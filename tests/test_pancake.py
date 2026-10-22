@@ -108,13 +108,24 @@ def test_scaling_symmetry_eq_29():
 
 def test_curvature_is_finite_and_matches_the_closed_form(sol):
     K = qp.pancake_kretschmann(sol)
-    K0 = qp.kretschmann_at_pancake(B0, F0, M, LAM)
+    K0 = qp.kretschmann_at_pancake(B0, F0, M, LAM, a0=A0)
     near = np.abs(sol["t"]) < 1e-2
     assert K[near] == pytest.approx(K0, rel=2e-4)
     assert np.all(np.isfinite(K)) and np.max(np.abs(K)) < 10 * K0
-    # not the paper's three coordinate components alone: 16 e^2 + 80/b0^4, with e = 2 b2 / b0 up to sign
+    # not the paper's three coordinate components alone: 16 e^2 + (128 - 48 a0^2)/b0^4, with e = 2 b2 / b0
     c = qp.pancake_series(A0, B0, F0, M, LAM)
-    assert K0 == pytest.approx(16.0 * (2.0 * c["b2"] / B0) ** 2 + 80.0 / B0 ** 4, rel=1e-12)
+    assert K0 == pytest.approx(16.0 * (2.0 * c["b2"] / B0) ** 2 + (128.0 - 48.0 * A0 ** 2) / B0 ** 4, rel=1e-12)
+
+
+@pytest.mark.parametrize("a0,b0,f0,m,lam", [(1.2, 3.0, 2.0, 0.5, 0.1), (0.6, 2.0, 1.5, 0.8, 0.0),
+                                            (1.2, 18000.0, 13.0, 1.0 / 64000.0, 0.0)])
+def test_closed_form_curvature_depends_on_the_opening_speed(a0, b0, f0, m, lam):
+    # a0 != 1 and the paper's own parameters; an a0-free formula is off by 20% for the latter
+    sol = qp.pancake_solution(a0, b0, f0, m, lam, t_max=0.02 * b0, t_min=-0.02 * b0, t_start=1e-3, n=120)
+    K = qp.pancake_kretschmann(sol)
+    K0 = qp.kretschmann_at_pancake(b0, f0, m, lam, a0=a0)
+    near = np.abs(sol["t"]) < 1e-3 * b0                                   # K(t) - K(0) = O((t / b0)^2)
+    assert K[near] == pytest.approx(K0, rel=2e-3)
 
 
 def test_kretschmann_closed_form_against_brute_force_riemann(brute):
@@ -124,7 +135,7 @@ def test_kretschmann_closed_form_against_brute_force_riemann(brute):
     d = qp.pancake_rhs(y, M, LAM)
     a, ad, add = y[:3] / 2.0, y[3:6] / 2.0, d[3:6] / 2.0
     assert bk.bianchi9_kretschmann(a, ad, add) == pytest.approx(brute(a, ad, add)[0], rel=1e-8)
-    assert qp.kretschmann_at_pancake(B0, F0, M, LAM) == pytest.approx(brute(a, ad, add)[0], rel=1e-5)
+    assert qp.kretschmann_at_pancake(B0, F0, M, LAM, a0=A0) == pytest.approx(brute(a, ad, add)[0], rel=1e-5)
 
 
 def test_shear_diverges_like_one_over_t_squared(sol):
@@ -141,7 +152,7 @@ def test_solution_input_validation():
 
 def test_sensor_runs_through_the_pancake(sol):
     df = qp.pancake_sensor_run(sol, -3.0, 3.0, rate_scale=5.0, n=150)
-    K0 = qp.kretschmann_at_pancake(B0, F0, M, LAM)
+    K0 = qp.kretschmann_at_pancake(B0, F0, M, LAM, a0=A0)
     assert isinstance(df, pd.DataFrame) and {"t", "tau", "K", "C_Q", "n", "sigma_z", "purity"} <= set(df.columns)
     assert df["t"].min() == pytest.approx(-3.0, abs=0.2) and df["t"].max() == pytest.approx(3.0, abs=0.2)
     assert np.any(df["t"] == 0.0) and df.loc[df["t"] == 0.0, "K"].iloc[0] == pytest.approx(K0, rel=1e-12)
