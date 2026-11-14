@@ -50,3 +50,19 @@ A three-pulse light-pulse interferometer (Kasevich-Chu): pulses at `0, T, 2T` sp
 - **Right.** A gravity gradient `g(z) = g0 + gamma z`, atom released from rest. The change in phase follows `-(7/12) k gamma T^3 (g T - v_r)` (`v_r = hbar k / m`, the recoil velocity) to better than 0.5%; the residual is a `v_r^2` term. The propagation and separation phases are each about 1e-2 rad at `gamma = 2e-6 s^-2` and cancel, which is a useful consistency check on the numerics.
 
 Limits: this is the textbook geometry, not the Quantum Galileo experiment of `QUANTGRAV.md` 2.3, which I read only from press coverage (one arm held against gravity, the other launched; no numbers). There is no link from this phase to the Jaynes-Cummings sensor, because the repository has no such mapping and an overlay would be invented. A phase consistent with the equivalence principle does not show that gravity is quantum; see `QGL.md` section 1.6.
+
+## `qgl_pancake_3d.png`: the pancake at t = 0 in 3D
+
+`python qgl_hopf.py --figure3d` (or `make figure-pancake3d`).
+
+![pancake in 3D](qgl_pancake_3d.png)
+
+The spatial slice of the biaxial pancake (`qgl_pancake.py`, after arXiv:0809.4335) is a Berger sphere: `S^3` with the Hopf fibre scaled by `s = R_1/R_2`, over a base 2-sphere of radius `R_2/2`. Parameters: `a0 = 1, b0 = 3, f0 = 2, m = 0.5, Lambda = 0.1`, the same as the pancake panel of `qgl_quadgrav.png`.
+
+- **Top row, `t = 0, 0.15, 0.4, 1`.** The base sphere with the Hopf fibre over 30 base points drawn as a circle of radius `R_1` (true proper size, so the fibre length is `2 pi R_1`). At `t = 0` the fibres are points: the closed direction has collapsed, the volume is zero, and what remains is a 2-sphere of radius `b0/2`. The slice scalar curvature `(8 - 2 s^2)/R_2^2` is `8/b0^2 = 0.889` there, so nothing diverges in the slice. By `t = 1` the fibre circles are as big as the base.
+- **Bottom left.** The history for `|t| <= 2.5` in `(R_1, R_2, phi)` space: it passes through the plane `R_1 = 0` at the single point `(0, b0, f0)`, with `R_1` odd in `t`.
+- **Bottom right.** `R_1(t)` goes through zero linearly (slope `a0`), `R_2` stays close to `b0`, and the volume `|R_1| R_2^2` touches zero at `t = 0` and grows on both sides. The title of the figure quotes `K(0) = 1.084`, the closed-form Kretschmann scalar at the pancake.
+
+The tests (`tests/test_pancake_3d.py`) check the geometry helpers (fibre circles have the right centre, radius and length and lie in the tangent plane; the radii follow the series just after `t = 0`; the Berger closed form for the slice curvature matches `qgl_pancake.slice_ricci`).
+
+Limits: the fibre circles are drawn in the tangent plane of the base sphere as an illustration (the unit-tangent-bundle picture of `S^3 / Z_2 = SO(3)`), not as an isometric embedding of a Berger sphere in R^3. Whether the paper's slices are `S^3` (fibre period `4 pi`, the value used here) or `SO(3)` is not checked. The pancake series is leading order.
