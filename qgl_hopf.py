@@ -24,6 +24,7 @@ has the same formulas written independently; its cross-check against this module
 
     python3 qgl_hopf.py            print a summary
     python3 qgl_hopf.py --figure   write figures/qgl_hopf.png
+    python3 qgl_hopf.py --figure3d write figures/qgl_pancake_3d.png (the slice in 3D, at and just after t = 0)
 """
 from __future__ import annotations
 
@@ -135,6 +136,113 @@ def plot_hopf(path: str, a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: f
     plt.close(fig)
 
 
+# ---------------------------------------------------------------- 3D picture of the slice at and near the pancake
+
+def fibonacci_sphere(n: int) -> np.ndarray:
+    """n roughly evenly spread unit vectors, shape (n, 3)."""
+    i = np.arange(n) + 0.5
+    z = 1.0 - 2.0 * i / n
+    phi = np.pi * (1.0 + 5.0 ** 0.5) * i
+    r = np.sqrt(1.0 - z * z)
+    return np.stack([r * np.cos(phi), r * np.sin(phi), z], axis=1)
+
+
+def tangent_frame(n: np.ndarray):
+    """Two orthonormal vectors spanning the tangent plane of the unit sphere at n."""
+    n = np.asarray(n, dtype=float)
+    helper = np.array([1.0, 0.0, 0.0]) if abs(n[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    e1 = np.cross(n, helper)
+    e1 = e1 / np.linalg.norm(e1)
+    return e1, np.cross(n, e1)
+
+
+def fibre_circle(n: np.ndarray, base_radius: float, fibre_radius: float, m: int = 48) -> np.ndarray:
+    """The Hopf fibre over the base point `base_radius * n`, drawn as a circle of radius `fibre_radius` in the tangent
+    plane there (the unit-tangent-bundle picture of S^3 / Z_2 = SO(3) over S^2), shape (m, 3).  This is an illustration
+    in R^3, not an isometric embedding: the fibre circle has the right length 2 pi R_1 and the base sphere the right
+    radius R_2 / 2, but a fibre would not really lie in the tangent plane."""
+    e1, e2 = tangent_frame(n)
+    u = np.linspace(0.0, 2.0 * np.pi, m)
+    centre = base_radius * np.asarray(n, dtype=float)
+    return centre + fibre_radius * (np.cos(u)[:, None] * e1 + np.sin(u)[:, None] * e2)
+
+
+def pancake_slice_radii(t: float, a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: float = 0.5,
+                        Lam: float = 0.1) -> Dict[str, float]:
+    """(R_1, R_2) of the biaxial pancake at t >= 0: exactly (0, b_0) at t = 0, otherwise from qgl_pancake."""
+    if t <= 0.0:
+        return dict(R1=0.0, R2=float(b0), s=0.0)
+    y = qp.pancake_state_at(t, a0, b0, f0, m, Lam)
+    return dict(R1=float(y[0]), R2=float(y[1]), s=float(y[0] / y[1]))
+
+
+def plot_pancake_3d(path: str, a0: float = 1.0, b0: float = 3.0, f0: float = 2.0, m: float = 0.5, Lam: float = 0.1,
+                    times=(0.0, 0.15, 0.4, 1.0), n_fibres: int = 30) -> None:
+    """The pancake slice in 3D.  Four snapshots (t = 0 and three later times, left to right, top row then bottom-left):
+    the base S^2 of radius R_2 / 2 with the Hopf fibre over `n_fibres` base points drawn as circles of radius R_1 (true
+    proper size).  At t = 0 the fibres have shrunk to points and only the base sphere is left: a 3-space that has
+    collapsed to a 2-sphere, with finite curvature.  Bottom right: the history in (R_1, R_2, phi) space, odd R_1 through
+    the pancake at (0, b_0, f_0)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure(figsize=(16, 9.6))
+    gs = fig.add_gridspec(2, 4, height_ratios=[1.0, 0.9])
+    pts = fibonacci_sphere(n_fibres)
+    uu, vv = np.meshgrid(np.linspace(0, 2 * np.pi, 48), np.linspace(0, np.pi, 24))
+    cpal = plt.get_cmap("viridis")
+    lim = 0.5 * b0 + 1.2
+    for k, t in enumerate(times):
+        ax = fig.add_subplot(gs[0, k], projection="3d")
+        st = pancake_slice_radii(t, a0, b0, f0, m, Lam)
+        base = 0.5 * st["R2"]
+        ax.plot_surface(base * np.cos(uu) * np.sin(vv), base * np.sin(uu) * np.sin(vv), base * np.cos(vv),
+                        color="0.85", alpha=0.35, linewidth=0, shade=True)
+        if st["R1"] > 0.0:
+            for p in pts:
+                c = fibre_circle(p, base, st["R1"])
+                ax.plot(c[:, 0], c[:, 1], c[:, 2], color=cpal(0.5 * (p[2] + 1.0)), lw=1.0)
+        ax.set_xlim(-lim, lim), ax.set_ylim(-lim, lim), ax.set_zlim(-lim, lim)
+        ax.set_box_aspect((1, 1, 1), zoom=1.55)
+        ax.set_axis_off()
+        ax.view_init(elev=18, azim=35)
+        scal = (8.0 - 2.0 * st["s"] ** 2) / st["R2"] ** 2
+        ax.set_title(f"t = {t:g}:  R$_1$ = {st['R1']:.3f},  R$_2$ = {st['R2']:.3f}\n"
+                     f"fibre length 2$\\pi$R$_1$ = {2 * np.pi * st['R1']:.2f};  slice scalar curvature {scal:.3f}",
+                     fontsize=9)
+    sol = qp.pancake_solution(a0, b0, f0, m, Lam, t_max=5.0, n=300)
+    near = np.abs(sol["t"]) <= 2.5
+    t_, R_, ph_ = sol["t"][near], sol["R"][near], sol["phi"][near]
+    ax = fig.add_subplot(gs[1, 0:2], projection="3d")
+    ax.plot(R_[:, 0], R_[:, 1], ph_, color=_PAL[1], lw=2.0)
+    ax.scatter([0.0], [b0], [f0], color="k", s=45, zorder=5, label="pancake, t = 0")
+    yy, zz = np.meshgrid(np.linspace(R_[:, 1].min() * 0.98, R_[:, 1].max() * 1.02, 2),
+                         np.linspace(ph_.min(), ph_.max(), 2))
+    ax.plot_surface(np.zeros_like(yy), yy, zz, color="0.7", alpha=0.25, linewidth=0)
+    ax.set_xlabel("R$_1$ (odd in t)"), ax.set_ylabel("R$_2$ = R$_3$"), ax.set_zlabel(r"$\phi$")
+    ax.locator_params(nbins=4)
+    ax.view_init(elev=20, azim=-55)
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    ax.set_title("history for |t| <= 2.5 in (R$_1$, R$_2$, $\\phi$): R$_1$ changes sign at the plane R$_1$ = 0", fontsize=9)
+    a2 = fig.add_subplot(gs[1, 2:4])
+    a2.plot(t_, R_[:, 0], color=_PAL[1], lw=1.8, label="R$_1$ (fibre scale; fibre length = 2$\\pi$R$_1$)")
+    a2.plot(t_, R_[:, 1], color=_PAL[0], lw=1.8, label="R$_2$ = R$_3$ (base scale; base radius R$_2$/2)")
+    a2.plot(t_, np.abs(R_[:, 0]) * R_[:, 1] ** 2 / b0 ** 2, color=_PAL[2], lw=1.4, ls="--",
+            label="volume $\\propto |R_1| R_2^2$ (in units of $b_0^2$)")
+    a2.axvline(0.0, color="0.4", lw=0.9)
+    a2.set_xlabel("t"), a2.set_title("one scale factor goes linearly through zero; the other stays near b$_0$", fontsize=9)
+    a2.legend(frameon=False, fontsize=8, loc="center left")
+    a2.grid(alpha=0.25)
+    k0 = qp.kretschmann_at_pancake(b0, f0, m, Lam, 1.0, a0)
+    fig.suptitle(f"Pancake at t = 0 in 3D: the closed direction collapses, the volume vanishes, curvature is finite "
+                 f"(Kretschmann K(0) = {k0:.3f};  a0 = {a0:g}, b0 = {b0:g}, f0 = {f0:g}, m = {m:g}, "
+                 f"$\\Lambda$ = {Lam:g})", fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
 def main() -> None:
     s = summary()
     print("Pancake as a Berger sphere (a0=1, b0=3, f0=2, m=0.5):")
@@ -150,5 +258,8 @@ if __name__ == "__main__":
     if "--figure" in sys.argv:
         os.makedirs("figures", exist_ok=True)
         plot_hopf(os.path.join("figures", "qgl_hopf.png"))
+    elif "--figure3d" in sys.argv:
+        os.makedirs("figures", exist_ok=True)
+        plot_pancake_3d(os.path.join("figures", "qgl_pancake_3d.png"))
     else:
         main()
