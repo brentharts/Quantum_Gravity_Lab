@@ -305,9 +305,143 @@ def graph_statistics(verts: np.ndarray, edges, interior: float) -> Dict[str, obj
             "n_interior": int(inner.sum())}
 
 
+# ---------------------------------------------------------------- Z[tau] coordinates
+
+ZTAU_UNIT = 3.0 ** 0.5 / 2.0       # global irrational factor of the icosahedral frame used here
+ZTAU_DEN = 2                       # common denominator
+
+
+def zphi_coordinates(points: np.ndarray, unit: float = ZTAU_UNIT, den: int = ZTAU_DEN, b_max: int = 60,
+                     tol: float = 1e-8):
+    """Write every coordinate as x = unit * (a + b tau) / den with integers a, b.
+
+    Returns an integer array of shape (n, 3, 2) holding (a, b), or None if some coordinate has no such form with
+    |b| <= b_max (Z[tau] is dense in R, so b_max is kept small and tol tight to make a chance fit unlikely)."""
+    pts = np.asarray(points, dtype=float)
+    y = pts.reshape(-1) / unit * den
+    bs = np.arange(-b_max, b_max + 1)
+    a = np.rint(y[:, None] - bs[None, :] * TAU)
+    res = np.abs(a + bs[None, :] * TAU - y[:, None])
+    best = res.argmin(axis=1)
+    ok = res[np.arange(len(y)), best] < tol
+    if not np.all(ok):
+        return None
+    ab = np.stack([a[np.arange(len(y)), best], bs[best]], axis=1).astype(int)
+    return ab.reshape(pts.shape[0], 3, 2)
+
+
+# ---------------------------------------------------------------- chain gaps
+
+def chain_gap_word(offsets: Dict[int, float], tol: float = 1e-9) -> str:
+    """'L'/'S' word of the gaps between consecutive planes of a chain (two gap lengths expected)."""
+    x = np.array(sorted(offsets.values()))
+    gaps = np.diff(x)
+    short = gaps.min()
+    return "".join("S" if abs(g - short) < tol else "L" for g in gaps)
+
+
+# ---------------------------------------------------------------- tetrahedron adjacency (spin-network input)
+
+def shared_vertex_counts(cells: List[np.ndarray]) -> Dict[Tuple[int, int], int]:
+    """For every pair of cells (i < j) that touch, the number of vertices they share (1 = vertex, 2 = edge, 3 = face)."""
+    where: Dict[Tuple[float, ...], List[int]] = {}
+    for i, c in enumerate(cells):
+        for p in c:
+            where.setdefault(tuple(np.round(p, 6) + 0.0), []).append(i)
+    counts: Dict[Tuple[int, int], int] = {}
+    for ids in where.values():
+        for a, b in itertools.combinations(sorted(set(ids)), 2):
+            counts[(a, b)] = counts.get((a, b), 0) + 1
+    return counts
+
+
+def cell_adjacency(cells: List[np.ndarray], shared: int) -> List[Tuple[int, int]]:
+    """Links between cells sharing exactly `shared` vertices (3 = a common triangle, i.e. the spin-network rule
+    'nodes = tetrahedra, links = shared triangles'; 2 = a common edge)."""
+    return sorted(k for k, v in shared_vertex_counts(cells).items() if v == shared)
+
+
+def degree_sequence(n_nodes: int, links: List[Tuple[int, int]]) -> np.ndarray:
+    d = np.zeros(n_nodes, dtype=int)
+    for a, b in links:
+        d[a] += 1
+        d[b] += 1
+    return d
+
+
+# ---------------------------------------------------------------- figure
+
+def plot_chain(path: str, radius: float = 12.0) -> None:
+    """Four panels: H4 shells of the E8 roots, the Fibonacci chain against uniform spacing, the 20G cluster inside the
+    icosagrid vertices, and the vertex-degree histogram of the largest-cell edge graph."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from collections import Counter
+
+    import qgl_e8
+
+    fig, ax = plt.subplots(2, 2, figsize=(11, 9))
+    # (a) E8 roots in the H4 subspace
+    roots = qgl_e8.e8_roots()
+    p_phys, _ = qgl_e8.h4_projection()
+    img = roots @ p_phys.T
+    rad = np.round(np.linalg.norm(img, axis=1), 6)
+    shells = sorted(set(rad))
+    a = ax[0, 0]
+    for r_, col in zip(shells, ("tab:blue", "tab:orange")):
+        m = rad == r_
+        a.scatter(img[m, 0], img[m, 1], s=10, color=col, label=f"{int(m.sum())} roots, radius {r_:.4f}")
+    a.set_aspect("equal")
+    a.set_title(f"E8 roots in the H4 subspace: radius ratio {shells[-1] / shells[0]:.4f} (tau = {TAU:.4f})", fontsize=9)
+    a.legend(fontsize=8, frameon=False)
+    # (b) chains
+    a = ax[0, 1]
+    fib = np.array(sorted(fibonacci_offsets(12).values()))
+    uni = np.array(sorted(uniform_offsets(12).values()))
+    a.vlines(fib, 0.1, 0.9, color="tab:red", lw=1.4, label="Fibonacci spacing")
+    a.vlines(uni, -0.9, -0.1, color="tab:gray", lw=1.4, label="uniform spacing")
+    a.set_yticks([])
+    a.set_title("plane offsets x_N: gaps T and tau T (Fibonacci word) vs a lattice", fontsize=9)
+    a.set_ylim(-1.0, 1.5)
+    a.legend(fontsize=8, frameon=False, loc="upper center", ncol=2)
+    # (c) 20G inside the icosagrid vertices
+    off = fibonacci_offsets(12)
+    v = icosagrid_vertices(off, 6.0)
+    c20 = cluster_20g(core_scale(off))
+    a = ax[1, 0]
+    a.scatter(v[:, 0], v[:, 1], s=3, color="0.6", label=f"icosagrid vertices ({len(v)}, r <= 6)")
+    a.scatter(c20[:, 0], c20[:, 1], s=26, color="tab:red", label="20G cluster (61 points)")
+    a.set_aspect("equal")
+    a.set_title("20G cluster inside the Fibonacci icosagrid (xy projection)", fontsize=9)
+    a.legend(fontsize=8, frameon=False, loc="upper right")
+    # (d) degree histogram, largest cells
+    verts, edges, cells, _ = icosagrid_graph(off, radius)
+    big = max(round(float(np.linalg.norm(c[0] - c[1])), 6) for c in cells)
+    gv, ge = graph_from_cells(cells, edge_length=big)
+    deg = degree_sequence(len(gv), ge)
+    inner = np.linalg.norm(gv, axis=1) <= radius - 2 * big
+    h = Counter(deg[inner].tolist())
+    a = ax[1, 1]
+    a.bar(list(h.keys()), list(h.values()), color="tab:green")
+    a.set_xlabel("vertex degree")
+    a.set_ylabel("vertices")
+    a.set_title(f"largest-cell edge graph, interior vertices: degrees {min(h)}-{max(h)}", fontsize=9)
+    for q in ax.ravel():
+        q.grid(alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     print(f"golden rotation arccos((3 tau-1)/4) = {GOLDEN_ROTATION_DEG:.4f} deg")
     t = five_tetrahedra()
     print("min relative rotation between tetragrid 0 and 1..4:",
           [round(min_relative_angle_deg(t[0], t[k]), 4) for k in range(1, 5)])
     print("20G vertices:", len(cluster_20g()))
+    import os
+    import sys
+    if "--figure" in sys.argv:
+        os.makedirs("figures", exist_ok=True)
+        plot_chain(os.path.join("figures", "qgl_qsn.png"))
