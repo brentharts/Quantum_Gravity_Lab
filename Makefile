@@ -17,7 +17,7 @@ PYTEST    := $(PY) -m pytest -p no:cacheprovider
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-system install-python check-install test test-slow test-all \
-        figures figure-compare figure-horizon figure-hopf figure-tokamak figure-qsn figure-quadgrav figure-atom run-compare run-horizon clean distclean
+        figures figure-compare figure-horizon figure-hopf figure-tokamak figure-qsn figure-quadgrav figure-atom figure-pancake3d run-compare run-horizon clean distclean
 
 help:
 	@echo "Quantum Gravity Lab"
@@ -27,8 +27,8 @@ help:
 	@echo "  make test            fast tests (about 3 min)"
 	@echo "  make test-slow       only the slow EinsteinPy geodesic tests (about 2 min)"
 	@echo "  make test-all        every test, slow ones included"
-	@echo "  make figures         all figures: compare, horizon (pancake + Mixmaster), hopf, tokamak, qsn, quadgrav, atom"
-	@echo "  make figure-compare | figure-horizon | figure-hopf | figure-tokamak | figure-qsn | figure-quadgrav | figure-atom   one figure set"
+	@echo "  make figures         all figures: compare, horizon (pancake + Mixmaster), hopf, tokamak, qsn, quadgrav, atom, pancake3d"
+	@echo "  make figure-compare | figure-horizon | figure-hopf | figure-tokamak | figure-qsn | figure-quadgrav | figure-atom | figure-pancake3d   one figure set"
 	@echo "  make run-compare     print the comparison table;  make run-horizon  print the horizon summary"
 	@echo "  make clean           remove caches;  make distclean also removes $(VENV)"
 
@@ -57,7 +57,7 @@ test-slow: $(PY)
 test-all: $(PY)
 	$(PYTEST) tests -q --runslow
 
-figures: figure-compare figure-horizon figure-hopf figure-tokamak figure-qsn figure-quadgrav figure-atom
+figures: figure-compare figure-horizon figure-hopf figure-tokamak figure-qsn figure-quadgrav figure-atom figure-pancake3d
 
 figure-compare: $(PY)
 	$(PY) qgl_compare.py --figure
@@ -79,6 +79,9 @@ figure-quadgrav: $(PY)
 
 figure-atom: $(PY)
 	$(PY) qgl_atom_phase.py --figure
+
+figure-pancake3d: $(PY)
+	$(PY) qgl_hopf.py --figure3d
 
 run-compare: $(PY)
 	$(PY) qgl_compare.py

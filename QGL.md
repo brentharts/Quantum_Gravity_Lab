@@ -252,7 +252,7 @@ QUANTUMGRAVITYLAB/
 ├── qgl_jc_lindblad.py      # Positivity-preserving decay for the JC sensor (core engine's is not)
 ├── Makefile                # make install / test / test-slow / figures (see make help)
 ├── figures/qgl_tokamak.png
-├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png, qgl_hopf.png, qgl_qsn.png, qgl_quadgrav.png, qgl_atom_phase.png
+├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png, qgl_hopf.png, qgl_qsn.png, qgl_quadgrav.png, qgl_atom_phase.png, qgl_pancake_3d.png
 ├── qgl_ensemble.py         # Batch/ensemble orbit runner (CSV, parallel, seeded)
 ├── qgl_einsteinpy.py       # EinsteinPy cross-checks: exact Schwarzschild/Kerr precession vs QGL
 ├── qgl_kasner.py           # Kasner vacuum cosmology: symbolic check, geodesics, singularity morphology
@@ -263,12 +263,12 @@ QUANTUMGRAVITYLAB/
 ├── qgl_ccbh.py             # TOY cosmologically-coupled black hole conversion (matter -> dark-energy-like), single-BH growth/spin laws
 ├── qgl_compare.py          # Side-by-side Kasner / Mixmaster / pancake / bounce / LCDM / toy / CCBH on one K(t) and sensor footing
 ├── qgl_horizon.py          # Particle horizons at Kasner and pancake singularities (which axes can exchange light)
-├── qgl_hopf.py             # Pancake slice as a Hopf fibration / Berger sphere: squashing s(t), slice Ricci, fibre winding, e-folds per turn
+├── qgl_hopf.py             # Pancake slice as a Hopf fibration / Berger sphere: squashing s(t), slice Ricci, fibre winding, e-folds per turn; --figure3d draws it in 3D
 ├── tests/test_hopf.py, tests/test_s3_identifications.py   # Berger/Hopf checks; Euler-angle S^3 identifications behind the horizon code
 ├── qgl_qsn.py              # E8 -> quasicrystal thread, 3D side: tetragrids, 20G, Fibonacci icosagrid, Z[tau] coordinates, cell adjacency; --figure
 ├── qgl_quadgrav.py         # Weyl^2 / Ricci^2 probe for quadratic gravity on FLRW, Kasner, Mixmaster and the pancake; --figure
 ├── qgl_atom_phase.py       # Light-pulse atom-interferometer phase k g T^2: action + laser phases, mass independence, Eotvos ratio, gradient term; --figure
-├── tests/test_qsn_extra.py, tests/test_quadgrav.py, tests/test_atom_phase.py   # checks for the three modules above
+├── tests/test_qsn_extra.py, tests/test_quadgrav.py, tests/test_atom_phase.py, tests/test_pancake_3d.py   # checks for the modules above and for the 3D pancake geometry
 ├── qgl_bkl_sweep.py        # Scan of the Mixmaster starting parameter u: epochs, bounces, sensor response
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite

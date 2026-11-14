@@ -1,5 +1,28 @@
 # Quantum Gravity Lab (QGL)
 
+![Weyl-squared probe: FLRW, Kasner, pancake, Mixmaster](figures/qgl_quadgrav.png)
+
+**Where would a Weyl-squared term matter?** Quadratic gravity (`R + R^2 + Weyl^2`) was shown by Stelle (1977) to be renormalizable in four dimensions, at the price of a massive spin-2 ghost; recent work proposes treating that mode as an inverted-oscillator-like instability instead (arXiv:2603.07150, see `QUANTGRAV.md`). This figure does **not** solve its field equations. It computes the Weyl scalar `C^2 = K - 2 Ric^2 + R^2/3` on the geometries this repository already has, to show which of them such a term could act on (`python qgl_quadgrav.py --figure`; code in `qgl_quadgrav.py`, checks in `tests/test_quadgrav.py`).
+
+* **Left, flat FLRW against vacuum Kasner.** Flat FLRW is conformally flat, so `C^2` is zero to roundoff for any `H(t)` (blue): a Weyl-squared term has nothing to act on in the homogeneous background, and only `R^2` can matter there. Vacuum Kasner is the opposite limit (red): Ricci is zero, so `C^2` equals the Kretschmann scalar and the ratio is exactly 1.
+* **Right, vacuum Mixmaster.** Ricci is zero here too, so `C^2 = K` and it grows without bound toward the singularity, by tens of orders of magnitude over the run. It also changes sign at each bounce (the dip in `|C^2|`); the dashed `sqrt(K^2 + K_*^2)` does not.
+* **Middle, the pancake.** `K`, `Ric^2` and `C^2` all stay finite through the pancake at `t = 0`, for the parameters shown (`a0 = 1, b0 = 3, f0 = 2, m = 0.5, Lambda = 0.1`): `K(0) = 1.084`, `Ric^2 = 1.44`, `R = 2.4`, `C^2(0) = 0.124`. The scalar field supplies Ricci curvature, so the geometry is never pure Weyl, and `C^2` reaches its largest magnitude (about 0.55, negative) near `|t| = 2`, not at the pancake. Because the Gauss-Bonnet density is a total derivative in four dimensions, `R^2` and `C^2` are the only two quadratic terms that could change the dynamics, and along the pancake both are finite.
+
+So of the three anisotropic histories here, the vacuum ones (Kasner, Mixmaster) hand a quadratic-gravity action a Weyl density that diverges as `t^-4`, while the pancake is a singularity-free route through a vanishing volume on which every quadratic invariant is finite. That is a statement about the invariants of a classical solution of GR plus a scalar field. It does not show that the pancake solves quadratic gravity (it does not, in general: the extra terms change the equations), and the Bach tensor, which governs the `Weyl^2` contribution to the field equations and vanishes on conformally flat metrics, is not computed here.
+
+## The pancake model
+
+`qgl_pancake.py` implements the non-singular "pancake" Big Bang of Dechant, Lasenby and Hobson (arXiv:0809.4335): a massive scalar field in a biaxial Bianchi IX universe, with metric `ds^2 = -dt^2 + (1/4) sum R_i^2 (omega^i)^2` and `R_2 = R_3`. The solution is the odd-parity series `R_1 = t (a0 + a2 t^2 + ...)`, `R_2 = R_3 = b0 + b2 t^2 + ...`, `phi = f0 + f2 t^2 + ...`: one scale factor goes **linearly through zero** while the other two stay finite. At `t = 0` the spatial volume vanishes, yet the curvature does not diverge (`K(0)` has the closed form `16 e^2 + (128 - 48 a0^2)/b0^4` with `e = Lambda/2 + kappa m^2 f0^2/4 - 2/b0^2`, checked against a brute-force Riemann tensor). The shear of the comoving observers does diverge, like `1/(3 t^2)`; it is a kinematic property of that family of observers, not one of the curvature invariants, which stay finite. The solution continues through `t = 0` with `R_1` odd and `R_2`, `phi` even.
+
+![Pancake at t = 0 in 3D](figures/qgl_pancake_3d.png)
+
+*The same pancake in 3D (`python qgl_hopf.py --figure3d`).* The spatial slice is `S^3` with the Hopf fibre scaled by `s = R_1/R_2`, a Berger sphere (see "The pancake as a Hopf fibration" below). The four top panels show the base 2-sphere of radius `R_2/2` and, over 30 base points, the Hopf fibre as a circle of radius `R_1`, at `t = 0, 0.15, 0.4, 1`. At `t = 0` the fibres have shrunk to points and the 3-space has collapsed onto a 2-sphere of radius `b0/2`: a pancake, and still a regular, curved one (slice scalar curvature `8/b0^2 = 0.889`). By `t = 1` the fibre circles are as large as the base. Bottom left: the history in `(R_1, R_2, phi)` space passes through the plane `R_1 = 0` at `(0, b0, f0)`. Bottom right: `R_1` crosses zero linearly, `R_2` stays near `b0`, and the volume `|R_1| R_2^2` touches zero and turns around.
+
+The fibre circles are an illustration, not an isometric embedding: they are drawn in the tangent plane of the base sphere (the unit-tangent-bundle picture of `S^3 / Z_2 = SO(3)`), with the right length `2 pi R_1` and the right base radius, but a real fibre does not lie in the tangent plane. Whether the paper's slices are `S^3` or the quotient `SO(3)` is still open in this repository.
+
+What the figures do not establish: the pancake series is leading order, not a solution to all orders; `Lambda` is a free choice here (the paper's value was not readable); and nothing connects either figure to a quantum theory of gravity. The Jaynes-Cummings sensor is driven by `K(t)` through the pancake in `qgl_pancake.pancake_sensor_run`, which is a modelling choice.
+
+
 
 ### 4.5 Tokamak mode (new)
 
@@ -91,7 +114,7 @@ The slice of the biaxial pancake is `S^3` with the Hopf fibre scaled by `s = R_1
 
 ![pancake as a Berger sphere](figures/qgl_hopf.png)
 
-(`python qgl_hopf.py --figure`.) Left: `s(t)` against `a0 t/b0`. Middle: slice Ricci and scalar curvature from the solution against the Berger closed form, which agree to rounding, so this checks `qgl_bkl.ricci3` and the identification, not new physics. Right: turns of the fibre and e-folds per turn.
+(`python qgl_hopf.py --figure`; a 3D view of the same slice at and just after the pancake is at the top of this page, `python qgl_hopf.py --figure3d`.) Left: `s(t)` against `a0 t/b0`. Middle: slice Ricci and scalar curvature from the solution against the Berger closed form, which agree to rounding, so this checks `qgl_bkl.ricci3` and the identification, not new physics. Right: turns of the fibre and e-folds per turn.
 
 `tests/test_s3_identifications.py` checks the identifications this uses from the embedding `S^3 in C^2` (Euler-angle metric, `psi`-orbits are Hopf fibres, period `4 pi`, fibre length `2 pi R_1`, base radius `R_2/2`, Milnor's Ricci formula). The same formulas, written separately, are in the sister repository [HopfFibration](https://github.com/brentharts/HopfFibration) (`hopf_berger.py`, `hopf_pancake.py`); a scratch cross-check of that repository against this one (Berger Ricci and scalar, volume `2 pi^2 R_1 R_2 R_3`, fibre period, circumference, e-folds per turn) passed 18 of 18 comparisons. That cross-check is not in either repository's test suite.
 
@@ -110,6 +133,7 @@ python qgl_horizon.py       # particle horizons: Kasner, pancake, Mixmaster
 python qgl_horizon.py --figures   # regenerate figures/qgl_horizon_*.png (about 10 s)
 python qgl_hopf.py          # pancake as a Berger sphere: s(t), slice curvature, fibre winding
 python qgl_hopf.py --figure # regenerate figures/qgl_hopf.png
+python qgl_hopf.py --figure3d   # regenerate figures/qgl_pancake_3d.png
 python qgl_qsn.py --figure      # regenerate figures/qgl_qsn.png (E8 -> quasicrystal chain)
 python qgl_quadgrav.py          # Weyl^2 probe: FLRW, Kasner
 python qgl_quadgrav.py --figure # regenerate figures/qgl_quadgrav.png
