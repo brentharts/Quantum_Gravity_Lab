@@ -110,6 +110,11 @@ python qgl_horizon.py       # particle horizons: Kasner, pancake, Mixmaster
 python qgl_horizon.py --figures   # regenerate figures/qgl_horizon_*.png (about 10 s)
 python qgl_hopf.py          # pancake as a Berger sphere: s(t), slice curvature, fibre winding
 python qgl_hopf.py --figure # regenerate figures/qgl_hopf.png
+python qgl_qsn.py --figure      # regenerate figures/qgl_qsn.png (E8 -> quasicrystal chain)
+python qgl_quadgrav.py          # Weyl^2 probe: FLRW, Kasner
+python qgl_quadgrav.py --figure # regenerate figures/qgl_quadgrav.png
+python qgl_atom_phase.py        # atom-interferometer phase k g T^2
+python qgl_atom_phase.py --figure # regenerate figures/qgl_atom_phase.png
 pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 ```
 

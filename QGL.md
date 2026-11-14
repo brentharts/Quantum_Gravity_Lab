@@ -231,6 +231,18 @@ This `β(r)` is **explicitly a phenomenological model**, not a claim about the a
 
 ---
 
+### 1.6 What the sensor can and cannot claim: time, and quantum matter on a classical background
+
+Two 2026 references bear on how far this lab can be read as "quantum gravity". Both were read only in summary (an arXiv abstract for the first, a press summary for the second); see `QUANTGRAV.md` for status and caveats. Nothing below is a claim that QGL implements either.
+
+**An external time.** Anastopoulos (arXiv:2609.22890, a survey, abstract read) argues that the problem of time is not only a by-product of quantizing GR. It already appears in the tension between causal structure, clocks, observables and measurement in classical mechanics, relativity, QM and QFT. He separates "time" into causal order, temporal duration and the present, and sorts quantum-gravity programmes (Wheeler-DeWitt, histories, background-dependent, causal sets, twistors) by how they treat it.
+QGL sits in the class that *keeps an external time*. The orbit is integrated in coordinate time `t`, the sensor is evolved along the worldline in proper time `tau`, and the clock layer (section 1.3) converts between them with the classical lapse and redshift. Nothing in the model quantizes the lapse, the clock or the causal order, and no Hamiltonian constraint is imposed on the sensor's state. So the lab says nothing about the problem of time; it assumes it away, and this is a choice, not a result. The complexity scalar `C_Q` acts on the quantum side only through the classical curvature or speed along the path.
+
+**Quantum matter on a classical spacetime.** Foo, Suryaatmadja, Mann and Zych ("Relativity and decoherence of spacetime superpositions", *npj Quantum Information* 2026, as reported by ScienceDaily; DOI not checked) show that some setups described as a superposition of gravitational fields can equally be described as quantum particles in superposition on a classical spacetime, and that both descriptions are valid. Some proposed signatures of quantum gravity are therefore ambiguous, and their framework identifies which would genuinely need it. It does not show gravity is classical.
+This applies directly to the Jaynes-Cummings sensor. Its coupling `g`, cavity frequency and atom frequency are driven by a *classical* `K(t)`, speed and potential along the path (`qgl_curvature.jc_params_from_curvature`). Whatever it records, a qubit and a cavity in a classical background, is quantum matter on a classical spacetime, which by the argument above is not evidence that the gravitational field is quantum. That is why QGL is described as a sandbox rather than a quantum-gravity theory. The same caution applies to the atom-interferometer phase in `qgl_atom_phase.py`: it checks the equivalence principle and the `k g T^2` scaling, and it would be equally well described with a classical field.
+
+---
+
 ## 2. Repository layout
 
 ```text
@@ -240,7 +252,7 @@ QUANTUMGRAVITYLAB/
 ├── qgl_jc_lindblad.py      # Positivity-preserving decay for the JC sensor (core engine's is not)
 ├── Makefile                # make install / test / test-slow / figures (see make help)
 ├── figures/qgl_tokamak.png
-├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png, qgl_hopf.png
+├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png, qgl_hopf.png, qgl_qsn.png, qgl_quadgrav.png, qgl_atom_phase.png
 ├── qgl_ensemble.py         # Batch/ensemble orbit runner (CSV, parallel, seeded)
 ├── qgl_einsteinpy.py       # EinsteinPy cross-checks: exact Schwarzschild/Kerr precession vs QGL
 ├── qgl_kasner.py           # Kasner vacuum cosmology: symbolic check, geodesics, singularity morphology
@@ -253,6 +265,10 @@ QUANTUMGRAVITYLAB/
 ├── qgl_horizon.py          # Particle horizons at Kasner and pancake singularities (which axes can exchange light)
 ├── qgl_hopf.py             # Pancake slice as a Hopf fibration / Berger sphere: squashing s(t), slice Ricci, fibre winding, e-folds per turn
 ├── tests/test_hopf.py, tests/test_s3_identifications.py   # Berger/Hopf checks; Euler-angle S^3 identifications behind the horizon code
+├── qgl_qsn.py              # E8 -> quasicrystal thread, 3D side: tetragrids, 20G, Fibonacci icosagrid, Z[tau] coordinates, cell adjacency; --figure
+├── qgl_quadgrav.py         # Weyl^2 / Ricci^2 probe for quadratic gravity on FLRW, Kasner, Mixmaster and the pancake; --figure
+├── qgl_atom_phase.py       # Light-pulse atom-interferometer phase k g T^2: action + laser phases, mass independence, Eotvos ratio, gradient term; --figure
+├── tests/test_qsn_extra.py, tests/test_quadgrav.py, tests/test_atom_phase.py   # checks for the three modules above
 ├── qgl_bkl_sweep.py        # Scan of the Mixmaster starting parameter u: epochs, bounces, sensor response
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
