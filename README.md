@@ -139,6 +139,8 @@ python qgl_quadgrav.py          # Weyl^2 probe: FLRW, Kasner
 python qgl_quadgrav.py --figure # regenerate figures/qgl_quadgrav.png
 python qgl_atom_phase.py        # atom-interferometer phase k g T^2
 python qgl_atom_phase.py --figure # regenerate figures/qgl_atom_phase.png
+python qgl_cq.py                # classical-quantum toy: decoherence-diffusion trade-off
+python qgl_cq.py --figure       # regenerate figures/qgl_cq.png
 pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
 ```
 
@@ -188,6 +190,7 @@ pytest tests/ -q            # add --runslow for the slow EinsteinPy checks
   (Citation check pending: a MaRDI record lists this title as *J. Phys. A* 26 (1993), DOI 10.1088/0305-4470/26/8/009; neither source page was retrievable. See `QUANTGRAV.md`.)
 
 * M. Amaral, R. Clawson, K. Irwin, *Quasicrystalline Spin Foam with Matter: Definitions and Examples*, [arXiv:2306.01964](https://arxiv.org/abs/2306.01964).
+* J. Oppenheim, C. Sparaciari, B. Šoda, Z. Weller-Davies, *Gravitationally induced decoherence vs space-time diffusion: testing the quantum nature of gravity*, Nat. Commun. 14, 7910 (2023), [arXiv:2203.01982](https://arxiv.org/abs/2203.01982) (used in `qgl_cq.py`; the constants of the trade-off are convention-dependent and were not reconciled with the toy's).
   Cut-and-project model sets, SU(2) coherent states and a restricted EPRL-style amplitude on quasicrystalline spin networks.
 
 * C. Anastopoulos, *Time and causality in quantum gravity*, [arXiv:2609.22890](https://arxiv.org/abs/2609.22890).

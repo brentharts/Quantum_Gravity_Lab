@@ -241,6 +241,14 @@ QGL sits in the class that *keeps an external time*. The orbit is integrated in 
 **Quantum matter on a classical spacetime.** Foo, Suryaatmadja, Mann and Zych ("Relativity and decoherence of spacetime superpositions", *npj Quantum Information* 2026, as reported by ScienceDaily; DOI not checked) show that some setups described as a superposition of gravitational fields can equally be described as quantum particles in superposition on a classical spacetime, and that both descriptions are valid. Some proposed signatures of quantum gravity are therefore ambiguous, and their framework identifies which would genuinely need it. It does not show gravity is classical.
 This applies directly to the Jaynes-Cummings sensor. Its coupling `g`, cavity frequency and atom frequency are driven by a *classical* `K(t)`, speed and potential along the path (`qgl_curvature.jc_params_from_curvature`). Whatever it records, a qubit and a cavity in a classical background, is quantum matter on a classical spacetime, which by the argument above is not evidence that the gravitational field is quantum. That is why QGL is described as a sandbox rather than a quantum-gravity theory. The same caution applies to the atom-interferometer phase in `qgl_atom_phase.py`: it checks the equivalence principle and the `k g T^2` scaling, and it would be equally well described with a classical field.
 
+### 1.7 What backreaction would cost: a classical-quantum toy
+
+Section 1.6 says the sensor sits on a classical background and nothing flows back to the orbit. If the sensor were to push on the orbit, the joint dynamics would be classical-quantum (CQ). Oppenheim, Sparaciari, Soda and Weller-Davies (*Nat. Commun.* 14, 7910 (2023), arXiv:2203.01982) prove that consistent, completely positive, Markovian CQ dynamics with such a force must both decohere the quantum system and make the classical variable diffuse, and that there is a trade-off between the two: long coherence needs strong diffusion. This is the sense in which "backreaction" is not free.
+
+`qgl_cq.py` is a toy of that trade-off, not a model of gravity (ported from G11 of [brentharts/quantum-gravity](https://github.com/brentharts/quantum-gravity), `python/qg/cq_tradeoff.py`, and extended). A qubit's `sigma_z` is measured continuously with strength `k` and efficiency `eta`, and the record is fed back as a force `F` on a classical momentum `p`. Then, exactly: the coherence decays at `Gamma = 2k`, `p` diffuses with `D2 = F^2/(8 eta k)`, and the product `Gamma D2 = F^2/(4 eta)` does not depend on `k`. Weak measurement is slow decoherence with large diffusion; strong measurement the reverse. Degrading the record (`eta < 1`) raises the product and never lowers it. `tests/test_cq.py` checks the closed forms and a stochastic simulation against them (and against two deliberately broken versions of the simulation).
+
+What it does not show: that this protocol is optimal among all CQ dynamics, or that its constant `F^2/4` is the constant in Oppenheim et al., whose bound is written in Kramers-Moyal coefficients whose factors of 2 I did not reconcile. And there is no map from `p`, `F` or the qubit to the orbit or the Jaynes-Cummings sensor of `qgl_*`: the toy says what backreaction would have to cost, not how much it would cost here.
+
 ---
 
 ## 2. Repository layout
@@ -252,7 +260,7 @@ QUANTUMGRAVITYLAB/
 ├── qgl_jc_lindblad.py      # Positivity-preserving decay for the JC sensor (core engine's is not)
 ├── Makefile                # make install / test / test-slow / figures (see make help)
 ├── figures/qgl_tokamak.png
-├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png, qgl_hopf.png, qgl_qsn.png, qgl_quadgrav.png, qgl_atom_phase.png, qgl_pancake_3d.png
+├── figures/qgl_compare.png, qgl_horizon_pancake.png, qgl_horizon_mixmaster.png, qgl_hopf.png, qgl_qsn.png, qgl_quadgrav.png, qgl_atom_phase.png, qgl_pancake_3d.png, qgl_cq.png
 ├── qgl_ensemble.py         # Batch/ensemble orbit runner (CSV, parallel, seeded)
 ├── qgl_einsteinpy.py       # EinsteinPy cross-checks: exact Schwarzschild/Kerr precession vs QGL
 ├── qgl_kasner.py           # Kasner vacuum cosmology: symbolic check, geodesics, singularity morphology
@@ -268,7 +276,8 @@ QUANTUMGRAVITYLAB/
 ├── qgl_qsn.py              # E8 -> quasicrystal thread, 3D side: tetragrids, 20G, Fibonacci icosagrid, Z[tau] coordinates, cell adjacency; --figure
 ├── qgl_quadgrav.py         # Weyl^2 / Ricci^2 probe for quadratic gravity on FLRW, Kasner, Mixmaster and the pancake; --figure
 ├── qgl_atom_phase.py       # Light-pulse atom-interferometer phase k g T^2: action + laser phases, mass independence, Eotvos ratio, gradient term; --figure
-├── tests/test_qsn_extra.py, tests/test_quadgrav.py, tests/test_atom_phase.py, tests/test_pancake_3d.py   # checks for the modules above and for the 3D pancake geometry
+├── qgl_cq.py               # Decoherence-diffusion trade-off of a qubit pushing on a classical momentum (CQ toy): Gamma D2 = F^2/(4 eta); --figure
+├── tests/test_qsn_extra.py, tests/test_quadgrav.py, tests/test_atom_phase.py, tests/test_pancake_3d.py, tests/test_cq.py   # checks for the modules above and for the 3D pancake geometry
 ├── qgl_bkl_sweep.py        # Scan of the Mixmaster starting parameter u: epochs, bounces, sensor response
 ├── qgl_bkl.py              # BKL / Mixmaster: Kasner-epoch map, Bianchi IX solver, sensor with comoving or moving observer
 ├── tests/test_qgl.py       # pytest physics + regression suite
